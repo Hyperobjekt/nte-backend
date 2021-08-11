@@ -10,3 +10,4 @@ cdk.out
 creds.json
 *.csv
 .env*
+.DS_store

@@ -12,9 +12,7 @@ interface NtepQueryResult {
   id: string;
   filings: number;
   median_filed_amount: number;
-  filed_date?: {
-    value: string;
-  };
+  date?: string;
 }
 
 // List of valid regions
@@ -65,12 +63,12 @@ const getSummarySqlQuery = (params: NtepQueryParams) => {
   const { region = "counties" } = params;
   const sqlQuery = `
     SELECT
-      ${REGION_MAP[region]}_id as id,
+      ${REGION_MAP[region]}_id,
       COUNT(case_number) as filings,
       median(amount) as median_filed_amount
     FROM evictions
     WHERE date BETWEEN :start AND :end
-    GROUP BY id
+    GROUP BY ${REGION_MAP[region]}_id
     ORDER BY filings DESC`;
   return sqlQuery;
 };
@@ -80,17 +78,18 @@ const getSummarySqlQuery = (params: NtepQueryParams) => {
  */
 const getSummary = async (params: NtepQueryParams) => {
   const { format, ...restParams } = params;
+  const region = restParams.region || "counties";
   const sqlQuery = getSummarySqlQuery(restParams);
   console.log("performing query: %s", sqlQuery);
   const result = await query(sqlQuery, restParams);
-  console.log("received result: %j", result);
-  const rows = result.map(
-    ({ id, filings, median_filed_amount }: NtepQueryResult) => ({
-      id,
-      ef: filings,
-      mfa: Number(median_filed_amount),
-    })
-  );
+  console.log("received records");
+  const rows = Array.isArray(result)
+    ? result.map(({ filings, median_filed_amount, ...rest }: any) => ({
+        id: rest[REGION_MAP[region] + "_id"],
+        ef: filings,
+        mfa: median_filed_amount && Number(median_filed_amount),
+      }))
+    : result;
   if (format === "csv") return objectArrayToCsv(rows);
   return {
     ...restParams,
@@ -105,12 +104,13 @@ const getFilingsSqlQuery = (params: NtepQueryParams) => {
   const { region = "counties", location } = params;
   let sqlQuery = `
     SELECT
-      ${REGION_MAP[region]}_id as id,
+      ${REGION_MAP[region]}_id,
+      date,
       COUNT(case_number) as filings,
       median(amount) as median_filed_amount
     FROM evictions
     WHERE date BETWEEN :start AND :end
-    GROUP BY id,date
+    GROUP BY ${REGION_MAP[region]}_id,date
     ORDER BY date DESC`;
   if (location)
     sqlQuery = sqlQuery.replace(
@@ -127,13 +127,14 @@ const getFilingsSqlQuery = (params: NtepQueryParams) => {
 const getFilings = async (params: NtepQueryParams) => {
   const { format, ...restParams } = params;
   const sqlQuery = getFilingsSqlQuery(restParams);
+  const region = restParams["region"] || "counties";
   const result = await query(sqlQuery, restParams);
   const rows = result.map(
-    ({ filed_date, id, filings, median_filed_amount }: NtepQueryResult) => ({
-      date: filed_date?.value,
-      id,
+    ({ date, filings, median_filed_amount, ...rest }: any) => ({
+      id: rest[REGION_MAP[region] + "_id"],
+      date: date,
       ef: filings,
-      mfa: Number(median_filed_amount),
+      mfa: median_filed_amount && Number(median_filed_amount),
     })
   );
   if (format === "csv") return objectArrayToCsv(rows);
@@ -147,18 +148,51 @@ const getFilings = async (params: NtepQueryParams) => {
  * Runs the query and returns the result
  */
 async function query(sqlQuery: string, params: NtepQueryParams) {
+  // cast date strings to date objects for query
+  const queryParams: any = {
+    ...params,
+    start: new Date(params.start),
+    end: new Date(params.end),
+  };
   try {
-    const queryParams: any = {
-      ...params,
-      start: new Date(params.start),
-      end: new Date(params.end),
-    };
-    const results = await db.query(sqlQuery, queryParams);
-    console.log("got results: %j", results);
-    return results.records;
-  } catch (error) {
-    console.error(error);
-    return [];
+    const { records } = await db.query(sqlQuery, queryParams);
+    console.log("got results: %j", records.length);
+    return records;
+  } catch (error: any) {
+    console.error(error.message);
+    // workaround for 1MB result limit: https://github.com/jeremydaly/data-api-client/issues/59#issuecomment-749793078
+    if (
+      error.message.includes(
+        "Database returned more than the allowed response size limit"
+      )
+    ) {
+      const getCount = async (_query: string) => {
+        const query = `SELECT COUNT(*) FROM (${_query}) sub`;
+        console.log("retrieving total amount of records: %s", query);
+        const {
+          records: [{ count }],
+        } = await db.query(query, queryParams);
+        return count;
+      };
+      let result: any = [];
+      // Get result count
+      const count = await getCount(sqlQuery);
+      console.log("total number of records to retrieve: %s", count);
+      // Define limit based on your average record size
+      const limit = 10000;
+      // Use limits and offsets to page through the query
+      for (let page = 1; page <= Math.ceil(count / limit); page++) {
+        const limitQuery = sqlQuery.replace(
+          /;?$/,
+          `\nLIMIT ${limit} OFFSET ${(page - 1) * limit};`
+        );
+        console.log("running limited query: %s", limitQuery);
+        const { records } = await db.query(limitQuery, queryParams);
+        result = [...result, ...records];
+      }
+      return result;
+    }
+    return error.message;
   }
 }
 
@@ -205,6 +239,7 @@ exports.handler = async (event: any) => {
           "application/json"
         );
       } else {
+        console.log("success!");
         const type = params.format === "csv" ? "text/csv" : "application/json";
         return sendRes(200, JSON.stringify(result), type);
       }
