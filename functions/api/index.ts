@@ -60,15 +60,25 @@ const areParamsValid = (params: any) => {
  * Returns an SQL query string for the given parameters
  */
 const getSummarySqlQuery = (params: NtepQueryParams) => {
-  const { region = "counties" } = params;
-  const sqlQuery = `
+  const { region } = params;
+  const sqlQuery = region
+    ? `
     SELECT
       ${REGION_MAP[region]}_id,
       COUNT(case_number) as filings,
-      median(amount) as median_filed_amount
+      median(amount) as median_filed_amount,
+      SUM(amount) as total_filed_amount
     FROM evictions
     WHERE date BETWEEN :start AND :end
     GROUP BY ${REGION_MAP[region]}_id
+    ORDER BY filings DESC`
+    : `
+    SELECT
+      COUNT(case_number) as filings,
+      median(amount) as median_filed_amount,
+      SUM(amount) as total_filed_amount
+    FROM evictions
+    WHERE date BETWEEN :start AND :end
     ORDER BY filings DESC`;
   return sqlQuery;
 };
@@ -78,17 +88,25 @@ const getSummarySqlQuery = (params: NtepQueryParams) => {
  */
 const getSummary = async (params: NtepQueryParams) => {
   const { format, ...restParams } = params;
-  const region = restParams.region || "counties";
+  const region = restParams.region;
   const sqlQuery = getSummarySqlQuery(restParams);
   console.log("performing query: %s", sqlQuery);
   const result = await query(sqlQuery, restParams);
   console.log("received records");
   const rows = Array.isArray(result)
-    ? result.map(({ filings, median_filed_amount, ...rest }: any) => ({
-        id: rest[REGION_MAP[region] + "_id"],
-        ef: filings,
-        mfa: median_filed_amount && Number(median_filed_amount),
-      }))
+    ? result.map(
+        ({
+          filings,
+          median_filed_amount,
+          total_filed_amount,
+          ...rest
+        }: any) => ({
+          id: region ? rest[REGION_MAP[region] + "_id"] : "all",
+          ef: filings,
+          mfa: median_filed_amount && Number(median_filed_amount),
+          tfa: total_filed_amount && Number(total_filed_amount),
+        })
+      )
     : result;
   if (format === "csv") return objectArrayToCsv(rows);
   return {
@@ -101,18 +119,30 @@ const getSummary = async (params: NtepQueryParams) => {
  * Returns an SQL query for the given params
  */
 const getFilingsSqlQuery = (params: NtepQueryParams) => {
-  const { region = "counties", location } = params;
-  let sqlQuery = `
+  const { region, location } = params;
+  let sqlQuery = region
+    ? `
     SELECT
       ${REGION_MAP[region]}_id,
       date,
       COUNT(case_number) as filings,
-      median(amount) as median_filed_amount
+      median(amount) as median_filed_amount,
+      SUM(amount) as total_filed_amount
     FROM evictions
     WHERE date BETWEEN :start AND :end
     GROUP BY ${REGION_MAP[region]}_id,date
+    ORDER BY date DESC`
+    : `
+    SELECT
+      date,
+      COUNT(case_number) as filings,
+      median(amount) as median_filed_amount,
+      SUM(amount) as total_filed_amount
+    FROM evictions
+    WHERE date BETWEEN :start AND :end
+    GROUP BY date
     ORDER BY date DESC`;
-  if (location)
+  if (region && location)
     sqlQuery = sqlQuery.replace(
       /WHERE date/g,
       `WHERE ${REGION_MAP[region]}_id = :location AND date`
@@ -130,11 +160,18 @@ const getFilings = async (params: NtepQueryParams) => {
   const region = restParams["region"] || "counties";
   const result = await query(sqlQuery, restParams);
   const rows = result.map(
-    ({ date, filings, median_filed_amount, ...rest }: any) => ({
+    ({
+      date,
+      filings,
+      median_filed_amount,
+      total_filed_amount,
+      ...rest
+    }: any) => ({
       id: rest[REGION_MAP[region] + "_id"],
       date: date,
       ef: filings,
       mfa: median_filed_amount && Number(median_filed_amount),
+      tfa: total_filed_amount && Number(total_filed_amount),
     })
   );
   if (format === "csv") return objectArrayToCsv(rows);
@@ -158,7 +195,7 @@ async function query(sqlQuery: string, params: NtepQueryParams) {
     const { records } = await db.query(sqlQuery, queryParams);
     console.log("got results: %j", records.length);
     return records;
-  } catch (error: any) {
+  } catch (error) {
     console.error(error.message);
     // workaround for 1MB result limit: https://github.com/jeremydaly/data-api-client/issues/59#issuecomment-749793078
     if (

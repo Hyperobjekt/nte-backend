@@ -7,6 +7,7 @@ import * as integrations from "@aws-cdk/aws-apigatewayv2-integrations";
 import * as s3 from "@aws-cdk/aws-s3";
 import * as lambdaEventSources from "@aws-cdk/aws-lambda-event-sources";
 import { Duration } from "@aws-cdk/core";
+import { CorsHttpMethod } from "@aws-cdk/aws-apigatewayv2";
 
 export class NtepStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -29,6 +30,7 @@ export class NtepStack extends cdk.Stack {
       ),
       defaultDatabaseName: "EvictionsDB",
       vpc,
+      scaling: { autoPause: cdk.Duration.hours(4) },
     });
 
     /**
@@ -56,6 +58,21 @@ export class NtepStack extends cdk.Stack {
       defaultIntegration: new integrations.LambdaProxyIntegration({
         handler: queryFn,
       }),
+      corsPreflight: {
+        allowHeaders: [
+          "Content-Type",
+          "X-Amz-Date",
+          "Authorization",
+          "X-Api-Key",
+        ],
+        allowMethods: [
+          CorsHttpMethod.OPTIONS,
+          CorsHttpMethod.GET,
+          CorsHttpMethod.POST,
+          CorsHttpMethod.PUT,
+        ],
+        allowOrigins: ["*"],
+      },
     });
 
     new cdk.CfnOutput(this, "HTTP API URL", {
