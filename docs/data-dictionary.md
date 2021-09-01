@@ -1,27 +1,26 @@
-# NTE Data Plan
+# North Texas Evictions Data Dictionary
 
-## Data Sources
-
-These data sources will be provided by the CPAL team.
-
-### Filing data (CSV)
+## Filing data (CSV)
 
 All eviction filing data will be provided in a **single** CSV file.
 
-**CSV Data Structure**
+**CSV Data Structure ([NTEP_eviction_cases.csv](https://github.com/childpovertyactionlab/cpal-evictions/blob/main/filing%20data/NTEP_eviction_cases.csv))**
 
-| column      | type      | notes                                                   |
-| :---------- | :-------- | :------------------------------------------------------ |
-| case_number | `text`    | unique identifier for the filing                        |
-| county_id   | `text`    | identifier for county this filing belongs to            |
-| tract_id    | `text`    | identifier for tract this filing belongs to             |
-| city_id     | `text`    | identifier for city that this filing belongs to         |
-| date        | `date`    | ISO 8601 format (yyyy-mm-dd)                            |
-| amount      | `numeric` | filing amount                                           |
-| lat         | `numeric` | latitude (might not be used, but include just in case)  |
-| lon         | `numeric` | longitude (might not be used, but include just in case) |
+| column      | type      | notes                                                    |
+| :---------- | :-------- | :------------------------------------------------------- |
+| case_number | `text`    | unique identifier for the filing                         |
+| date        | `date`    | ISO 8601 format (yyyy-mm-dd)                             |
+| amount      | `numeric` | filing amount                                            |
+| precinct_id | `text`    | identifier for the precinct this filing belongs to       |
+| tract_id    | `text`    | identifier for tract this filing belongs to              |
+| zip_id      | `text`    | identifier for the zip code this filing belongs to       |
+| city_id     | `text`    | identifier for city that this filing belongs to          |
+| county_id   | `text`    | identifier for county this filing belongs to             |
+| council_id  | `text`    | identifier for the council regions the filing belongs to |
+| lat         | `numeric` | latitude (might not be used, but include just in case)   |
+| lon         | `numeric` | longitude (might not be used, but include just in case)  |
 
-> note: an identifier will need to be added for each level of geography that will be mapped (e.g. zip_id, city_council_id, etc.)
+> note: an identifier will need to be added for each level of geography that will be mapped (e.g. zip_id, city_council_id, etc.). Each identifier should be string that only includes numbers that can be cast to an integer.
 
 ### Demographic Data + Geometry (GeoJSON)
 
@@ -52,11 +51,11 @@ These GeoJSON files will be used in conjunction with the eviction filings data t
 
 **Feature Properties**
 
-| property | type      | notes                                                                                                   |
-| :------- | :-------- | :------------------------------------------------------------------------------------------------------ |
-| id       | `varchar` | a unique identifier (usually GEOID or FIPS), should correspond to a location identifier in the CSV data |
-| name     | `text`    | name corresponding to the geographic area                                                               |
-| pop      | `numeric` | a population metric that is used to calculate rates based on the # of eviction filings for the area     |
+| property | type      | notes                                                                                                                              |
+| :------- | :-------- | :--------------------------------------------------------------------------------------------------------------------------------- |
+| id       | `varchar` | a unique identifier (usually GEOID or FIPS), should correspond to a location identifier in the CSV data                            |
+| name     | `text`    | name corresponding to the geographic area                                                                                          |
+| pop      | `numeric` | a population metric (number of renting households) that is used to calculate rates based on the # of eviction filings for the area |
 
 ## Data Infrastructure + Providers
 
