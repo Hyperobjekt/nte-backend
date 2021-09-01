@@ -57,75 +57,7 @@ These GeoJSON files will be used in conjunction with the eviction filings data t
 | name     | `text`    | name corresponding to the geographic area                                                                                          |
 | pop      | `numeric` | a population metric (number of renting households) that is used to calculate rates based on the # of eviction filings for the area |
 
-## Data Infrastructure + Providers
 
-The following data infrastructure will be built by the Hyperobjekt team under an AWS account owned by the CPAL team.
-
-### Eviction Filings Database
-
-The CSV filings data will be loaded into a PostgreSQL compatible database provided by AWS Aurora Serverless. A scheduled task will be configured that reloads the database with the latest data from a CSV every day. Location of the CSV data file is TBD (could be github or AWS S3, see static file storage below).
-
-### REST API
-
-The REST API will provide public endpoints for querying eviction filing data. The rest API will be built using AWS Lambda and AWS API Gateway. An endpoint will be provided for queries, with the following optional query parameters:
-
-- `region`: a region identifier (e.g. tracts). if no region is provided, an overall summary of the data will be provided.
-- `start`: a start date for the date range in ISO 8601 format (e.g. 2021-07-11). if no start date is provided, 30 days prior to the current date will be used.
-- `end`: an end date for the date range in ISO 8601 format (e.g. 2021-07-25). if no end date is provided, the current date will be used.
-
-**Sample query URL:**
-
-`https://domain.com/summary?region=tracts&start=2021-07-11&end=2021-07-25`
-
-**Sample Response:**
-
-```json
-[
-  {
-    "id": "48113003400",
-    "filings": 214,
-    "median_amount": 560.00
-  },
-  {
-    "id": "48113002701",
-    "filings": 94,
-    "median_amount": 920.50
-  },
-  ...
-]
-```
-
-In addition to the base endpoint, there will be an additional endpoint for retrieving time series data. The query parameters remain the same, with the addition of one parameter:
-
-- `id`: a location identifier to retrieve data for. if no id is provided, data will consist of totals for the entire region.
-
-**Sample query URL:**
-
-`https://domain.com/filings?region=tracts&start=2021-07-11&end=2021-07-25&id=48113003400`
-
-**Sample Response:**
-
-```json
-[
-  {
-    "id": "48113003400",
-    "date": "2021-07-11",
-    "filings": 3,
-    "median_amount": 290.00
-  },
-  {
-    "id": "48113003400",
-    "date": "2021-07-12",
-    "filings": 6,
-    "median_amount": 450.50
-  },
-  ...
-]
-```
-
-### Static File Storage
-
-Static file storage will be required for storing source CSVs, GeoJSON files, and any other required data (e.g. search data). The location of where these files is still to be determined, but the most preferrable options would be Github (if file size does no exceed thresholds) or AWS S3 if larger file storage is required.
 
 ## Data Consumers (Front-end)
 
