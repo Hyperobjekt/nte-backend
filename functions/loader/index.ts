@@ -4,11 +4,16 @@ const parse = require("csv-parse/lib/sync");
 const RDS = new AWS.RDSDataService();
 const s3 = new AWS.S3();
 
+// TODO: do not drop the production table.  Instead, add a new table with a different name.
+//     Then, rename the new table to the production table once records are successfully added.
 const evictionTableSQL = `DROP TABLE IF EXISTS evictions;
 CREATE TABLE IF NOT EXISTS evictions (
   case_number VARCHAR ( 32 ) PRIMARY KEY,
   date DATE NOT NULL,
   amount NUMERIC ( 10, 2 ),
+  precinct_id VARCHAR ( 32 ),
+  council_id VARCHAR ( 32 ),
+  city_id VARCHAR ( 32 ),
   zip_id VARCHAR ( 5 ),
   tract_id VARCHAR ( 11 ),
   county_id VARCHAR ( 5 ),
@@ -97,6 +102,15 @@ const loadData = async (bucket: string, filename: string): Promise<any> => {
         case_number: `'${record.case_number}'`,
         date: `'${record.date}'`,
         amount: record.amount ? Number(record.amount) : "null",
+        precinct_id: record.precinct_id
+          ? `'${record.precinct_id.replace(/\D/g, "")}'`
+          : "null",
+        council_id: record.council_id
+          ? `'${record.council_id.replace(/\D/g, "")}'`
+          : "null",
+        city_id: record.city_id
+          ? `'${record.city_id.replace(/\D/g, "")}'`
+          : "null",
         zip_id: record.zip_id ? `'${record.zip_id}'` : "null",
         tract_id: record.tract_id ? `'${record.tract_id}'` : "null",
         county_id: record.county_id ? `'${record.county_id}'` : "null",
