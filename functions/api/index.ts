@@ -21,6 +21,7 @@ const REGION_MAP: any = {
   tracts: "tract",
   cities: "city",
   zips: "zip",
+  districts: "council",
 };
 
 /**
@@ -182,6 +183,26 @@ const getFilings = async (params: NtepQueryParams) => {
 };
 
 /**
+ * Gets the total number of records along with min / max date
+ * @returns
+ */
+const getMeta = async () => {
+  const sqlQuery = `
+    SELECT
+      COUNT(case_number) as filings,
+      MAX(date) as last_filing,
+      MIN(date) as first_filing
+    FROM evictions`;
+  try {
+    const { records } = await db.query(sqlQuery);
+    console.log("got results: %j", records.length);
+    return records;
+  } catch (error) {
+    return error.message;
+  }
+};
+
+/**
  * Runs the query and returns the result
  */
 async function query(sqlQuery: string, params: NtepQueryParams) {
@@ -265,6 +286,10 @@ exports.handler = async (event: any) => {
         case "/filings":
           console.log("fetching filings by day");
           result = await getFilings(params);
+          break;
+        case "/meta":
+          console.log("fetching meta");
+          result = await getMeta();
           break;
         default:
           result = null;
