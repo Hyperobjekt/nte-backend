@@ -4,10 +4,17 @@ const parse = require("csv-parse/lib/sync");
 const RDS = new AWS.RDSDataService();
 const s3 = new AWS.S3();
 
+// The Lambda environment variables for the Aurora Cluster Arn, Database Name, and the AWS Secrets Arn hosting the master credentials of the serverless db
+var DBSecretsStoreArn = process.env.SECRET_ARN!;
+var DBAuroraClusterArn = process.env.CLUSTER_ARN!;
+var DatabaseName = process.env.DB_NAME!;
+var TableName = `evictions_${process.env.NTEP_ENV}`;
+var TmpTableName = "evictions_tmp"; // temporary table for loading data
+
 // TODO: do not drop the production table.  Instead, add a new table with a different name.
 //     Then, rename the new table to the production table once records are successfully added.
-const evictionTableSQL = `DROP TABLE IF EXISTS evictions;
-CREATE TABLE IF NOT EXISTS evictions (
+const evictionTableSQL = `DROP TABLE IF EXISTS ${TmpTableName};
+CREATE TABLE IF NOT EXISTS ${TmpTableName} (
   case_number VARCHAR ( 32 ) PRIMARY KEY,
   date DATE NOT NULL,
   amount NUMERIC ( 10, 2 ),
@@ -21,11 +28,6 @@ CREATE TABLE IF NOT EXISTS evictions (
   lat NUMERIC ( 10, 7 )
 );`;
 
-// The Lambda environment variables for the Aurora Cluster Arn, Database Name, and the AWS Secrets Arn hosting the master credentials of the serverless db
-var DBSecretsStoreArn = process.env.SECRET_ARN!;
-var DBAuroraClusterArn = process.env.CLUSTER_ARN!;
-var DatabaseName = process.env.DB_NAME!;
-
 const baseParams = {
   secretArn: DBSecretsStoreArn,
   resourceArn: DBAuroraClusterArn,
@@ -35,9 +37,7 @@ const baseParams = {
 async function createTables() {
   // create the tables via SQL statement
   const params = {
-    secretArn: DBSecretsStoreArn,
-    resourceArn: DBAuroraClusterArn,
-    database: DatabaseName,
+    ...baseParams,
     sql: evictionTableSQL,
   };
   try {
@@ -52,7 +52,7 @@ async function createTables() {
 const getInsertStatement = (data: object) => {
   const keys = Object.keys(data);
   const values = Object.values(data);
-  return `INSERT INTO evictions (${keys.join(",")}) VALUES(${values.join(
+  return `INSERT INTO ${TmpTableName} (${keys.join(",")}) VALUES(${values.join(
     ","
   )})`;
 };
@@ -137,7 +137,25 @@ const insertData = async (data: object[]) => {
       console.log("...", count * 100, "rows inserted");
     }
   }
-  // TODO: move the source file
+};
+
+/**
+ * Moves the temporary table for data loading to the active table.
+ * @returns
+ */
+const promoteTmpTable = async () => {
+  const params = {
+    ...baseParams,
+    sql: `DROP TABLE IF EXISTS ${TableName};
+    ALTER TABLE ${TmpTableName} RENAME TO ${TableName};`,
+  };
+  try {
+    let dbResponse = await RDS.executeStatement(params).promise();
+    return dbResponse;
+  } catch (error) {
+    console.error(error, params.sql);
+    return error;
+  }
 };
 
 exports.handler = async (event: any) => {
@@ -150,6 +168,8 @@ exports.handler = async (event: any) => {
     console.log("inserting", data.length, "rows");
     await insertData(data);
     console.log("finished inserting data");
+    await promoteTmpTable();
+    console.log("promoted temporary table to active table");
     await s3.deleteObject({ Bucket: bucket, Key: file }).promise();
     console.log("removed source file: %s", `${bucket}/${file}`);
   }
