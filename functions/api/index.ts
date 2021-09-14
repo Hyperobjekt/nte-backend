@@ -6,6 +6,7 @@ interface NtepQueryParams {
   region?: string;
   location?: string;
   format?: string;
+  precinct?: string;
 }
 
 interface NtepQueryResult {
@@ -24,6 +25,8 @@ const REGION_MAP: any = {
   districts: "council",
 };
 
+const TABLE_NAME = `evictions_${process.env.NTEP_ENV}`;
+
 /**
  * Parses the request parameters, and sets defaults if none are provided
  */
@@ -35,6 +38,7 @@ const getQueryParams = (params: any = {}): NtepQueryParams => {
   if (params.region) result.region = params.region;
   if (params.location) result.location = params.location;
   if (params.format) result.format = params.format;
+  if (params.precinct) result.precinct = params.precinct;
   return result;
 };
 
@@ -61,15 +65,15 @@ const areParamsValid = (params: any) => {
  * Returns an SQL query string for the given parameters
  */
 const getSummarySqlQuery = (params: NtepQueryParams) => {
-  const { region } = params;
-  const sqlQuery = region
+  const { region, precinct } = params;
+  let sqlQuery = region
     ? `
     SELECT
       ${REGION_MAP[region]}_id,
       COUNT(case_number) as filings,
       median(amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
-    FROM evictions
+    FROM ${TABLE_NAME}
     WHERE date BETWEEN :start AND :end
     GROUP BY ${REGION_MAP[region]}_id
     ORDER BY filings DESC`
@@ -78,9 +82,14 @@ const getSummarySqlQuery = (params: NtepQueryParams) => {
       COUNT(case_number) as filings,
       median(amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
-    FROM evictions
+    FROM ${TABLE_NAME}
     WHERE date BETWEEN :start AND :end
     ORDER BY filings DESC`;
+  if (precinct)
+    sqlQuery = sqlQuery.replace(
+      /WHERE /g,
+      `WHERE precinct_id = :precinct AND `
+    );
   return sqlQuery;
 };
 
@@ -120,7 +129,7 @@ const getSummary = async (params: NtepQueryParams) => {
  * Returns an SQL query for the given params
  */
 const getFilingsSqlQuery = (params: NtepQueryParams) => {
-  const { region, location } = params;
+  const { region, location, precinct } = params;
   let sqlQuery = region
     ? `
     SELECT
@@ -129,7 +138,7 @@ const getFilingsSqlQuery = (params: NtepQueryParams) => {
       COUNT(case_number) as filings,
       median(amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
-    FROM evictions
+    FROM ${TABLE_NAME}
     WHERE date BETWEEN :start AND :end
     GROUP BY ${REGION_MAP[region]}_id,date
     ORDER BY date DESC`
@@ -139,14 +148,19 @@ const getFilingsSqlQuery = (params: NtepQueryParams) => {
       COUNT(case_number) as filings,
       median(amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
-    FROM evictions
+    FROM ${TABLE_NAME}
     WHERE date BETWEEN :start AND :end
     GROUP BY date
     ORDER BY date DESC`;
   if (region && location)
     sqlQuery = sqlQuery.replace(
-      /WHERE date/g,
-      `WHERE ${REGION_MAP[region]}_id = :location AND date`
+      /WHERE /g,
+      `WHERE ${REGION_MAP[region]}_id = :location AND `
+    );
+  if (precinct)
+    sqlQuery = sqlQuery.replace(
+      /WHERE /g,
+      `WHERE precinct_id = :precinct AND `
     );
   console.log("filings query", sqlQuery);
   return sqlQuery;
@@ -192,7 +206,23 @@ const getMeta = async () => {
       COUNT(case_number) as filings,
       MAX(date) as last_filing,
       MIN(date) as first_filing
-    FROM evictions`;
+    FROM ${TABLE_NAME}`;
+  try {
+    const { records } = await db.query(sqlQuery);
+    console.log("got results: %j", records.length);
+    return records;
+  } catch (error) {
+    return error.message;
+  }
+};
+
+/**
+ * Gets the total number of records along with min / max date
+ * @returns
+ */
+const getPrecincts = async () => {
+  const sqlQuery = `
+    SELECT DISTINCT(precinct_id) FROM ${TABLE_NAME} ORDER BY precinct_id`;
   try {
     const { records } = await db.query(sqlQuery);
     console.log("got results: %j", records.length);
@@ -290,6 +320,10 @@ exports.handler = async (event: any) => {
         case "/meta":
           console.log("fetching meta");
           result = await getMeta();
+          break;
+        case "/precincts":
+          console.log("fetching precincts");
+          result = await getPrecincts();
           break;
         default:
           result = null;
