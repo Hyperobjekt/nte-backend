@@ -11,8 +11,10 @@ var DatabaseName = process.env.DB_NAME!;
 var TableName = `evictions_${process.env.NTEP_ENV}`;
 var TmpTableName = "evictions_tmp"; // temporary table for loading data
 
-// TODO: do not drop the production table.  Instead, add a new table with a different name.
-//     Then, rename the new table to the production table once records are successfully added.
+// store for errors
+var errors = [];
+
+// create a temoporary table for inserting data
 const evictionTableSQL = `DROP TABLE IF EXISTS ${TmpTableName};
 CREATE TABLE IF NOT EXISTS ${TmpTableName} (
   case_number VARCHAR ( 32 ) PRIMARY KEY,
@@ -45,6 +47,7 @@ async function createTables() {
     return dbResponse;
   } catch (error) {
     console.log(error);
+    errors.push(error);
     return error;
   }
 }
@@ -68,6 +71,7 @@ async function insertBatch(entries: any) {
     return dbResponse;
   } catch (error) {
     console.error(error, params.sql);
+    errors.push(error);
     return error;
   }
 }
@@ -122,6 +126,7 @@ const loadData = async (bucket: string, filename: string): Promise<any> => {
     return rows;
   } catch (err) {
     console.error(err);
+    errors.push(err);
     return [];
   }
 };
@@ -168,6 +173,10 @@ exports.handler = async (event: any) => {
     console.log("inserting", data.length, "rows");
     await insertData(data);
     console.log("finished inserting data");
+    if (errors.length > 0) {
+      console.error("unable to load data due to errors");
+      return;
+    }
     await promoteTmpTable();
     console.log("promoted temporary table to active table");
     await s3.deleteObject({ Bucket: bucket, Key: file }).promise();
