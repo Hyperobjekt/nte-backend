@@ -32,7 +32,7 @@ export class NtepStack extends cdk.Stack {
       ),
       defaultDatabaseName: DB_NAME,
       vpc,
-      scaling: { autoPause: cdk.Duration.hours(4) },
+      scaling: { autoPause: cdk.Duration.hours(12) },
     });
 
     /**

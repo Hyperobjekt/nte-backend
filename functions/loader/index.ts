@@ -9,7 +9,7 @@ var DBSecretsStoreArn = process.env.SECRET_ARN!;
 var DBAuroraClusterArn = process.env.CLUSTER_ARN!;
 var DatabaseName = process.env.DB_NAME!;
 var TableName = `evictions_${process.env.NTEP_ENV}`;
-var TmpTableName = "evictions_tmp"; // temporary table for loading data
+var TmpTableName = `evictions_tmp_${process.env.NTEP_ENV}`; // temporary table for loading data
 
 // store for errors
 var errors = [];
@@ -37,6 +37,7 @@ const baseParams = {
 };
 
 async function createTables() {
+  console.log("create temporary table", evictionTableSQL);
   // create the tables via SQL statement
   const params = {
     ...baseParams,
