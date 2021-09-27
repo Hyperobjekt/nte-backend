@@ -1,3 +1,5 @@
+import { exit } from "process";
+
 const AWS = require("aws-sdk");
 const parse = require("csv-parse/lib/sync");
 
@@ -177,8 +179,7 @@ exports.handler = async (event: any) => {
     await s3.deleteObject({ Bucket: bucket, Key: file }).promise();
     console.log("removed source file: %s", `${bucket}/${file}`);
     if (errors.length > 0) {
-      console.error("unable to load data due to errors");
-      return;
+      throw new Error(`unable to load data due to ${errors.length} errors`);
     }
     await promoteTmpTable();
     console.log("promoted temporary table to active table");
