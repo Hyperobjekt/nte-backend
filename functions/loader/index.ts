@@ -136,7 +136,7 @@ const insertData = async (data: object[]) => {
   if (!data || data.length === 0) throw new Error("Unable to load data");
   let count = 0;
   // load data 100 entries at a time
-  while (data.length > 0) {
+  while (data.length > 0 && errors.length === 0) {
     await insertBatch(data.splice(0, 100));
     count++;
     if (count % 10 === 0) {
@@ -174,14 +174,14 @@ exports.handler = async (event: any) => {
     console.log("inserting", data.length, "rows");
     await insertData(data);
     console.log("finished inserting data");
+    await s3.deleteObject({ Bucket: bucket, Key: file }).promise();
+    console.log("removed source file: %s", `${bucket}/${file}`);
     if (errors.length > 0) {
       console.error("unable to load data due to errors");
       return;
     }
     await promoteTmpTable();
     console.log("promoted temporary table to active table");
-    await s3.deleteObject({ Bucket: bucket, Key: file }).promise();
-    console.log("removed source file: %s", `${bucket}/${file}`);
   }
   console.log("done");
 };
