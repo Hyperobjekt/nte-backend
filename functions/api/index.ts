@@ -6,7 +6,6 @@ interface NtepQueryParams {
   region?: string;
   location?: string;
   format?: string;
-  precinct?: string;
 }
 
 interface NtepQueryResult {
@@ -23,6 +22,7 @@ const REGION_MAP: any = {
   cities: "city",
   zips: "zip",
   districts: "council",
+  courts: "precinct",
 };
 
 const TABLE_NAME = `evictions_${process.env.NTEP_ENV}`;
@@ -38,7 +38,6 @@ const getQueryParams = (params: any = {}): NtepQueryParams => {
   if (params.region) result.region = params.region;
   if (params.location) result.location = params.location;
   if (params.format) result.format = params.format;
-  if (params.precinct) result.precinct = params.precinct;
   return result;
 };
 
@@ -65,7 +64,7 @@ const areParamsValid = (params: any) => {
  * Returns an SQL query string for the given parameters
  */
 const getSummarySqlQuery = (params: NtepQueryParams) => {
-  const { region, precinct } = params;
+  const { region } = params;
   let sqlQuery = region
     ? `
     SELECT
@@ -85,11 +84,6 @@ const getSummarySqlQuery = (params: NtepQueryParams) => {
     FROM ${TABLE_NAME}
     WHERE date BETWEEN :start AND :end
     ORDER BY filings DESC`;
-  if (precinct)
-    sqlQuery = sqlQuery.replace(
-      /WHERE /g,
-      `WHERE precinct_id = :precinct AND `
-    );
   return sqlQuery;
 };
 
@@ -129,7 +123,7 @@ const getSummary = async (params: NtepQueryParams) => {
  * Returns an SQL query for the given params
  */
 const getFilingsSqlQuery = (params: NtepQueryParams) => {
-  const { region, location, precinct } = params;
+  const { region, location } = params;
   let sqlQuery = region
     ? `
     SELECT
@@ -156,11 +150,6 @@ const getFilingsSqlQuery = (params: NtepQueryParams) => {
     sqlQuery = sqlQuery.replace(
       /WHERE /g,
       `WHERE ${REGION_MAP[region]}_id = :location AND `
-    );
-  if (precinct)
-    sqlQuery = sqlQuery.replace(
-      /WHERE /g,
-      `WHERE precinct_id = :precinct AND `
     );
   console.log("filings query", sqlQuery);
   return sqlQuery;

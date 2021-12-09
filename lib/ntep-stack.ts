@@ -20,7 +20,21 @@ export class NtepStack extends cdk.Stack {
      */
 
     // Create the VPC needed for the Aurora Serverless DB cluster
-    const vpc = new ec2.Vpc(this, "AuroraVPC");
+    const vpc = new ec2.Vpc(this, "AuroraVPC", {
+      natGateways: 0,
+      subnetConfiguration: [
+        {
+          cidrMask: 24,
+          subnetType: ec2.SubnetType.PUBLIC,
+          name: "Public",
+        },
+        {
+          cidrMask: 24,
+          subnetType: ec2.SubnetType.ISOLATED,
+          name: "isolated",
+        }
+      ]
+    });
 
     // Create the Serverless Aurora DB cluster; set the engine to Postgres
     const cluster = new rds.ServerlessCluster(this, "AuroraEvictionsCluster", {
@@ -32,6 +46,7 @@ export class NtepStack extends cdk.Stack {
       ),
       defaultDatabaseName: DB_NAME,
       vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.ISOLATED },
       scaling: { autoPause: cdk.Duration.hours(12) },
     });
 

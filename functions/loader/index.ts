@@ -1,5 +1,3 @@
-import { exit } from "process";
-
 const AWS = require("aws-sdk");
 const parse = require("csv-parse/lib/sync");
 
