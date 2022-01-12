@@ -23,6 +23,7 @@ const REGION_MAP: any = {
   zips: "zip",
   districts: "council",
   courts: "precinct",
+  subprecint: "subprecinct_id",
 };
 
 const TABLE_NAME = `evictions_${process.env.NTEP_ENV}`;

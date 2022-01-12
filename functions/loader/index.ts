@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS ${TmpTableName} (
   case_number VARCHAR ( 32 ) PRIMARY KEY,
   date DATE NOT NULL,
   amount NUMERIC ( 10, 2 ),
+  subprecinct_id VARCHAR ( 32 ),
   precinct_id VARCHAR ( 32 ),
   council_id VARCHAR ( 32 ),
   city_id VARCHAR ( 32 ),
@@ -107,6 +108,9 @@ const loadData = async (bucket: string, filename: string): Promise<any> => {
         case_number: `'${record.case_number}'`,
         date: `'${record.date}'`,
         amount: record.amount ? Number(record.amount) : "null",
+        subprecinct_id: record.subprecinct_id
+          ? `'${record.subprecinct_id.replace(/\D/g, "")}'`
+          : "null",
         precinct_id: record.precinct_id
           ? `'${record.precinct_id.replace(/\D/g, "")}'`
           : "null",
