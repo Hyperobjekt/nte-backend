@@ -1,5 +1,17 @@
 import db from "./db";
 
+interface NtepLocationSummaryParams {
+  start: string;
+  end: string;
+  zips?: string;
+  counties?: string;
+  tracts?: string;
+  cities?: string;
+  districts?: string;
+  courts?: string;
+  format?: string;
+}
+
 interface NtepQueryParams {
   start: string;
   end: string;
@@ -15,7 +27,7 @@ interface NtepQueryResult {
   date?: string;
 }
 
-// List of valid regions
+// Maps the provided region param to a column prefix in the database table
 const REGION_MAP: any = {
   counties: "county",
   tracts: "tract",
@@ -23,7 +35,7 @@ const REGION_MAP: any = {
   zips: "zip",
   districts: "council",
   courts: "precinct",
-  subprecint: "subprecinct_id",
+  subprecints: "subprecinct",
 };
 
 const TABLE_NAME = `evictions_${process.env.NTEP_ENV}`;
@@ -31,14 +43,20 @@ const TABLE_NAME = `evictions_${process.env.NTEP_ENV}`;
 /**
  * Parses the request parameters, and sets defaults if none are provided
  */
-const getQueryParams = (params: any = {}): NtepQueryParams => {
-  const result: NtepQueryParams = {
+const getQueryParams = (params: any = {}): any => {
+  const result: any = {
     start: params.start || "2021-01-01",
     end: params.end || new Date().toISOString().split("T")[0],
   };
   if (params.region) result.region = params.region;
   if (params.location) result.location = params.location;
   if (params.format) result.format = params.format;
+  if (params.zips) result.zips = params.zips
+  if (params.counties) result.counties = params.counties
+  if (params.tracts) result.tracts = params.tracts
+  if (params.cities) result.cities = params.cities
+  if (params.districts) result.districts = params.districts
+  if (params.courts) result.courts = params.courts
   return result;
 };
 
@@ -119,6 +137,70 @@ const getSummary = async (params: NtepQueryParams) => {
     result: rows,
   };
 };
+
+/**
+ * Creates an SQL query for querying values by date for a collection of locations
+ */
+const getLocationsSummarySqlQuery = (params: any) => {
+  const regions = [
+    "zips",
+    "counties",
+    "tracts",
+    "cities",
+    "districts",
+    "courts",
+  ];
+  const locationsQuery = regions.reduce((query: Array<string>, region) => {
+    if (params.hasOwnProperty(region)) {
+      const column = REGION_MAP[region] + '_id';
+      // wrap location IDs in quotes
+      const values = params[region].split(",").map((v: any) => `'${v}'`).join(',');
+      query.push(`${column} IN (${values})`);
+    }
+    return query;
+  }, []).join(" OR ");
+
+  let sqlQuery = `
+    SELECT
+      date,
+      COUNT(case_number) as filings,
+      median(amount) as median_filed_amount,
+      SUM(amount) as total_filed_amount
+    FROM ${TABLE_NAME}
+    WHERE (date BETWEEN :start AND :end) AND (${locationsQuery})
+    GROUP BY date
+    ORDER BY date DESC`;
+  console.log("locations query", sqlQuery, params);
+  return sqlQuery;
+};
+
+/**
+ * Gets the filings, median filing amount, and total filed amount by day
+ * for a collection of locations.
+ */
+const getLocations = async (params: any) => {
+  const { format, ...restParams } = params;
+  const sqlQuery = getLocationsSummarySqlQuery(restParams);
+  const result = await query(sqlQuery, restParams);
+  const rows = result.map(
+    ({
+      date,
+      filings,
+      median_filed_amount,
+      total_filed_amount
+    }: any) => ({
+      date: date,
+      ef: filings,
+      mfa: median_filed_amount && Number(median_filed_amount),
+      tfa: total_filed_amount && Number(total_filed_amount),
+    })
+  );
+  if (format === "csv") return objectArrayToCsv(rows);
+  return {
+    ...restParams,
+    result: rows,
+  };
+}
 
 /**
  * Returns an SQL query for the given params
@@ -306,6 +388,10 @@ exports.handler = async (event: any) => {
         case "/filings":
           console.log("fetching filings by day");
           result = await getFilings(params);
+          break;
+        case "/locations":
+          console.log("fetching filings by for locations", params);
+          result = await getLocations(params);
           break;
         case "/meta":
           console.log("fetching meta");
