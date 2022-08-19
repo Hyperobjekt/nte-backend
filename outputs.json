@@ -1,6 +1,6 @@
 {
-  "productionApiUrl": "https://faxkuv0im9.execute-api.us-east-1.amazonaws.com/",
-  "productionDataBucket": "ntepstack-productiondatastore5e36f90b-o3qto80zqh1p",
-  "stagingApiUrl": "https://wkubgjbrr2.execute-api.us-east-1.amazonaws.com/",
-  "stagingDataBucket": "ntepstack-stagingdatastore42145388-cvt932mf4c2g"
+  "productionApiUrl": "https://ihjhaky4k5.execute-api.us-east-1.amazonaws.com/",
+  "productionDataBucket": "ntepstack-productiondatastore5e36f90b-p50xve6tywxi",
+  "stagingApiUrl": "https://sq4aq22yzb.execute-api.us-east-1.amazonaws.com/",
+  "stagingDataBucket": "ntepstack-stagingdatastore42145388-127p8bxhqqrgo"
 }
