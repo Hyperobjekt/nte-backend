@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS ${TmpTableName} (
   zip_id VARCHAR ( 5 ),
   tract_id VARCHAR ( 11 ),
   county_id VARCHAR ( 5 ),
+  elem_id VARCHAR ( 5 ),
+  midd_id VARCHAR ( 5 ),
+  high_id VARCHAR ( 5 ),
   lon NUMERIC ( 10, 7 ),
   lat NUMERIC ( 10, 7 )
 );`;
@@ -123,6 +126,9 @@ const loadData = async (bucket: string, filename: string): Promise<any> => {
         zip_id: record.zip_id ? `'${record.zip_id}'` : "null",
         tract_id: record.tract_id ? `'${record.tract_id}'` : "null",
         county_id: record.county_id ? `'${record.county_id}'` : "null",
+        elem_id: record.elem_id ? `'${record.elem_id}'` : "null",
+        midd_id: record.midd_id ? `'${record.midd_id}'` : "null",
+        high_id: record.high_id ? `'${record.high_id}'` : "null",
         lon: record.lon ? Number(record.lon) : "null",
         lat: record.lat ? Number(record.lat) : "null",
       });

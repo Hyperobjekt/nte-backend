@@ -17,6 +17,9 @@ All eviction filing data will be provided in a **single** CSV file.
 | city_id     | `text`    | identifier for city that this filing belongs to          |
 | county_id   | `text`    | identifier for county this filing belongs to             |
 | council_id  | `text`    | identifier for the council regions the filing belongs to |
+| elem_id     | `text`    | identifier for the elem school the filing belongs to     |
+| midd_id     | `text`    | identifier for the middle school the filing belongs to   |
+| high_id     | `text`    | identifier for the high school the filing belongs to     |
 | lat         | `numeric` | latitude (might not be used, but include just in case)   |
 | lon         | `numeric` | longitude (might not be used, but include just in case)  |
 

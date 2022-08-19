@@ -9,6 +9,9 @@ interface NtepLocationSummaryParams {
   cities?: string;
   districts?: string;
   courts?: string;
+  attendanceel?: string;
+  attendancemi?: string;
+  attendancehi?: string;
   format?: string;
 }
 
@@ -35,6 +38,9 @@ const REGION_MAP: any = {
   zips: "zip",
   districts: "council",
   courts: "precinct",
+  attendanceel: "elem",
+  attendancemi: "midd",
+  attendancehi: "high",
   subprecints: "subprecinct",
 };
 
@@ -56,6 +62,9 @@ const getQueryParams = (params: any = {}): any => {
   if (params.tracts) result.tracts = params.tracts
   if (params.cities) result.cities = params.cities
   if (params.districts) result.districts = params.districts
+  if (params.attendanceel) result.attendanceel = params.attendanceel
+  if (params.attendancemi) result.attendancemi = params.attendancemi
+  if (params.attendancehi) result.attendancehi = params.attendancehi
   if (params.courts) result.courts = params.courts
   return result;
 };
@@ -148,6 +157,9 @@ const getLocationsSummarySqlQuery = (params: any) => {
     "tracts",
     "cities",
     "districts",
+    "attendanceel",
+    "attendancemi",
+    "attendancehi",
     "courts",
   ];
   const locationsQuery = regions.reduce((query: Array<string>, region) => {
