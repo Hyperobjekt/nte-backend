@@ -1,7 +1,7 @@
 ## Getting Started
 
 - install AWS CDK (`npm i -g aws-cdk`)
-- instal local dependencies (`npm install`)
+- install local dependencies (`npm install` in the root of the repo **and** in the `/functions/api/` and`/functions/loader/` subdirectories)
 
 ## Deploying
 
