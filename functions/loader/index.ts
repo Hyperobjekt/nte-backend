@@ -27,9 +27,9 @@ CREATE TABLE IF NOT EXISTS ${TmpTableName} (
   zip_id VARCHAR ( 5 ),
   tract_id VARCHAR ( 11 ),
   county_id VARCHAR ( 5 ),
-  elem_id VARCHAR ( 5 ),
-  midd_id VARCHAR ( 5 ),
-  high_id VARCHAR ( 5 ),
+  elem_id VARCHAR ( 4 ),
+  midd_id VARCHAR ( 4 ),
+  high_id VARCHAR ( 4 ),
   lon NUMERIC ( 10, 7 ),
   lat NUMERIC ( 10, 7 )
 );`;
@@ -64,6 +64,11 @@ const getInsertStatement = (data: object) => {
     ","
   )})`;
 };
+
+const stripNonNumeric = (id: string) => {
+  const stripped = String(id).replace(/\D/g, "");
+  return stripped || "null";
+}
 
 async function insertBatch(entries: any) {
   const sqlStatements = entries.map(getInsertStatement);
@@ -111,29 +116,22 @@ const loadData = async (bucket: string, filename: string): Promise<any> => {
         case_number: `'${record.case_number}'`,
         date: `'${record.date}'`,
         amount: record.amount ? Number(record.amount) : "null",
-        subprecinct_id: record.subprecinct_id
-          ? `'${record.subprecinct_id.replace(/\D/g, "")}'`
-          : "null",
-        precinct_id: record.precinct_id
-          ? `'${record.precinct_id.replace(/\D/g, "")}'`
-          : "null",
-        council_id: record.council_id
-          ? `'${record.council_id.replace(/\D/g, "")}'`
-          : "null",
-        city_id: record.city_id
-          ? `'${record.city_id.replace(/\D/g, "")}'`
-          : "null",
-        zip_id: record.zip_id ? `'${record.zip_id}'` : "null",
-        tract_id: record.tract_id ? `'${record.tract_id}'` : "null",
-        county_id: record.county_id ? `'${record.county_id}'` : "null",
-        elem_id: record.elem_id ? `'${record.elem_id}'` : "null",
-        midd_id: record.midd_id ? `'${record.midd_id}'` : "null",
-        high_id: record.high_id ? `'${record.high_id}'` : "null",
+        subprecinct_id: stripNonNumeric(record.subprecinct_id),
+        precinct_id: stripNonNumeric(record.precinct_id),
+        council_id: stripNonNumeric(record.council_id),
+        city_id: stripNonNumeric(record.city_id),
+        zip_id: stripNonNumeric(record.zip_id),
+        tract_id: stripNonNumeric(record.tract_id),
+        county_id: stripNonNumeric(record.county_id),
+        elem_id: stripNonNumeric(record.elem_id),
+        midd_id: stripNonNumeric(record.midd_id),
+        high_id: stripNonNumeric(record.high_id),
         lon: record.lon ? Number(record.lon) : "null",
         lat: record.lat ? Number(record.lat) : "null",
       });
       ids[record.case_number] = true;
     }
+    console.log("done loading.")
     return rows;
   } catch (err) {
     console.error(err);
@@ -149,10 +147,12 @@ const insertData = async (data: object[]) => {
   while (data.length > 0 && errors.length === 0) {
     await insertBatch(data.splice(0, 100));
     count++;
-    if (count % 10 === 0) {
+    if (count % 50 === 0) {
       console.log("...", count * 100, "rows inserted");
+      // console.log("next row: ", data[0])
     }
   }
+  console.log("done inserting.")
 };
 
 /**
@@ -180,6 +180,7 @@ exports.handler = async (event: any) => {
   for (const record of event.Records) {
     const bucket = record.s3.bucket.name;
     const file = record.s3.object.key;
+    console.log("loading", file);
     const data = await loadData(bucket, file);
     console.log("inserting", data.length, "rows");
     await insertData(data);
