@@ -1,7 +1,17 @@
 ## Getting Started
 
 - install AWS CDK (`npm i -g aws-cdk`)
-- install local dependencies (`npm install` in the root of the repo **and** in the `/functions/api/` and`/functions/loader/` subdirectories)
+- install local dependencies (`npm install` in the root of the repo **and** in the `/functions/api/` and `/functions/loader/` subdirectories, which have separate package.jsons)
+
+## Data flow
+
+New data is deployed by uploading a new source file (NTEP_eviction_cases.csv) to the `filing_data` directory of the [cpal-evictions](https://github.com/childpovertyactionlab/cpal-evictions) repo. The data file must be formatted as described in the [data dictionary](https://github.com/Hyperobjekt/nte-backend/blob/main/docs).
+
+An Action registered to that repo will trigger (through [this helper](https://github.com/Hyperobjekt/s3-upload-github-action)) an upload of that file to an S3 bucket (one for staging, one for production).
+
+This in turn will trigger an AWS Lambda function (this repo's `loader/index.ts`), which clears the database and loads entries from the new source file (the env variables for this process can be viewed in the Configuration tab of the Lambda function). (The execution of the loader function will log to CloudWatch, as described in `Troubleshooting` below.) It is an Aurora PostgreSQL database and can be accessed through Amazon RDS (use the Query Editor to confirm changes have loaded successfully).
+
+See [api-and-infrastructure.md](./docs/api-and-infrastructure.md#rest-api) for more on the endpoint which fields the FE app's database queries.
 
 ## Deploying
 
@@ -33,16 +43,6 @@ Resolve by reinstalling aws-cdk
 npm uninstall -g aws-cdk
 npm install -g aws-cdk
 ```
-
-## Common Tasks
-
-### Updating the dataset
-
-New data can be deployed by uploading a new source file to the source data bucket (AWS permissions required).
-
-When a new file is uploaded to the S3 source data, an AWS Lambda function is triggered that clears the database and loads entries from the new source file.
-
-The data file must be formatted as described in the [data dictionary](https://github.com/Hyperobjekt/nte-backend/blob/main/docs).
 
 ### Troubleshooting / Confirming the data was updated correctly
 

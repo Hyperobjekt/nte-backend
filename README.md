@@ -1,3 +1,11 @@
+## Summary
+
+This project consists of multiple repos:
+
+- [Hyperobjekt/nte-backend](https://github.com/Hyperobjekt/nte-backend) (this repo): contains backend infrastructure code and lambda functions for the api
+- [childpovertyactionlab/cpal-evictions](https://github.com/childpovertyactionlab/cpal-evictions): this repo contains source data for populating the database in the nte-backend
+- [Hyperobjekt/north-texas-evictions](https://github.com/Hyperobjekt/north-texas-evictions): contains front end app code
+
 # REST API Template
 
 This repo sets up the required infrastructure to create an AWS hosted REST API using:
@@ -21,3 +29,5 @@ The `cdk.json` file tells the CDK Toolkit how to execute your app.
 - `cdk deploy` deploy this stack to your default AWS account/region
 - `cdk diff` compare deployed stack with current state
 - `cdk synth` emits the synthesized CloudFormation template
+
+see [CONTRIBUTING.md](./CONTRIBUTING.md)

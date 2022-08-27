@@ -6,13 +6,16 @@ The following data infrastructure will be built by the Hyperobjekt team under an
 
 The CSV filings data will be loaded into a PostgreSQL compatible database provided by AWS Aurora Serverless. A Github action is configured on the [cpal-evictions](https://github.com/childpovertyactionlab/cpal-evictions) repository that refreshes the database whenever new data is committed.
 
+see [CONTRIBUTING.md](../CONTRIBUTING.md#data-flow) for more on data flow and updating the data.
+
 ## REST API
 
 The REST API will provide public endpoints for querying eviction filing data. The rest API utilizes the AWS Aurora Servelss Database, AWS Lambda, and AWS API Gateway. The infrastructure is created using the
 
 ### Evictions Summary Endpoint
 
-- **URL:** https://cnvdr1v7ki.execute-api.us-east-1.amazonaws.com/summary
+- **URL:** https://sq4aq22yzb.execute-api.us-east-1.amazonaws.com/summary
+  - ihjhaky4k5 for production
 - **Query Params:**
   - `region`: a region identifier (e.g. tracts). if no region is provided, an overall summary of the data will be provided.
   - `start`: a start date for the date range in ISO 8601 format (e.g. 2021-07-11). if no start date is provided, 30 days prior to the current date will be used.
@@ -25,7 +28,7 @@ The REST API will provide public endpoints for querying eviction filing data. Th
 
 **Example Query:** county level summary from 2021-07-11 to 2021-07-25
 
-https://cnvdr1v7ki.execute-api.us-east-1.amazonaws.com/summary?region=counties&start=2021-07-11&end=2021-07-25
+https://sq4aq22yzb.execute-api.us-east-1.amazonaws.com/summary?region=counties&start=2021-07-11&end=2021-07-25
 
 **Response:**
 
@@ -45,7 +48,7 @@ https://cnvdr1v7ki.execute-api.us-east-1.amazonaws.com/summary?region=counties&s
 
 ### Evictions Time Series Endpoint
 
-- **URL:** https://cnvdr1v7ki.execute-api.us-east-1.amazonaws.com/filings
+- **URL:** https://sq4aq22yzb.execute-api.us-east-1.amazonaws.com/filings
 - **Query Params:**
   - `region` (optional): a region identifier (e.g. tracts). if no region is provided, an overall time series of the data will be provided.
   - `start`: a start date for the date range in ISO 8601 format (e.g. 2021-07-11). if no start date is provided, January 1, 2021 will be used.
@@ -60,7 +63,7 @@ https://cnvdr1v7ki.execute-api.us-east-1.amazonaws.com/summary?region=counties&s
 
 **Example Query URL:** Data by day for Dallas County (48113) starting July 1, 2021
 
-`https://cnvdr1v7ki.execute-api.us-east-1.amazonaws.com/filings?region=counties&location=48113&start=2021-07-01`
+`https://sq4aq22yzb.execute-api.us-east-1.amazonaws.com/filings?region=counties&location=48113&start=2021-07-01`
 
 **Response:**
 
