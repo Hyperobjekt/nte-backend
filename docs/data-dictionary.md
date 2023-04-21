@@ -37,7 +37,7 @@ These GeoJSON files will be used for displaying choropleths on the map. For each
 | name     | `text`    | name corresponding to the geographic area                                                               |
 | pvr      | `numeric` | poverty rate                                                                                            |
 | prh      | `numeric` | % renter homes                                                                                          |
-| mgr      | `numeric` | media gross rent                                                                                        |
+| mgr      | `numeric` | median gross rent                                                                                       |
 | mpv      | `numeric` | median property value                                                                                   |
 | rb       | `numeric` | rent burden                                                                                             |
 | mhi      | `numeric` | median household income                                                                                 |
