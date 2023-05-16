@@ -60,6 +60,7 @@ These GeoJSON files will be used in conjunction with the eviction filings data t
 | id       | `varchar` | a unique identifier (usually GEOID or FIPS), should correspond to a location identifier in the CSV data                            |
 | name     | `text`    | name corresponding to the geographic area                                                                                          |
 | pop      | `numeric` | a population metric (number of renting households) that is used to calculate rates based on the # of eviction filings for the area |
+| rhh      | `numeric` | the number of occupied renter households |
 
 
 
