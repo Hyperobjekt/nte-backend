@@ -12,16 +12,17 @@ All eviction filing data will be provided in a **single** CSV file.
 | date        | `date`    | ISO 8601 format (yyyy-mm-dd)                             |
 | amount      | `numeric` | filing amount                                            |
 | precinct_id | `text`    | identifier for the precinct this filing belongs to       |
+| subprecinct_id | `text` | identifier for the subprecinct this filing belongs to    |
+| council_id  | `text`    | identifier for the council regions the filing belongs to |
 | tract_id    | `text`    | identifier for tract this filing belongs to              |
 | zip_id      | `text`    | identifier for the zip code this filing belongs to       |
 | city_id     | `text`    | identifier for city that this filing belongs to          |
 | county_id   | `text`    | identifier for county this filing belongs to             |
-| council_id  | `text`    | identifier for the council regions the filing belongs to |
 | elem_id     | `text`    | identifier for the elem school the filing belongs to     |
 | midd_id     | `text`    | identifier for the middle school the filing belongs to   |
 | high_id     | `text`    | identifier for the high school the filing belongs to     |
-| lat         | `numeric` | latitude (might not be used, but include just in case)   |
 | lon         | `numeric` | longitude (might not be used, but include just in case)  |
+| lat         | `numeric` | latitude (might not be used, but include just in case)   |
 
 > note: an identifier will need to be added for each level of geography that will be mapped (e.g. zip_id, city_council_id, etc.). Each identifier should be string that only includes numbers that can be cast to an integer.
 
