@@ -1,5 +1,6 @@
 const AWS = require("aws-sdk");
 const parse = require("csv-parse/lib/sync");
+const { mapValues } = require("lodash")
 
 const RDS = new AWS.RDSDataService();
 const s3 = new AWS.S3();
@@ -8,37 +9,28 @@ const s3 = new AWS.S3();
 var DBSecretsStoreArn = process.env.SECRET_ARN!;
 var DBAuroraClusterArn = process.env.CLUSTER_ARN!;
 var DatabaseName = process.env.DB_NAME!;
-var TableName = `evictions_${process.env.NTEP_ENV}`;
-var TmpTableName = `evictions_tmp_${process.env.NTEP_ENV}`; // temporary table for loading data
+var TableName = `evictions_${process.env.STAGE}`;
+var TmpTableName = `evictions_tmp_${process.env.STAGE}`; // temporary table for loading data
 
 // store for errors
 var errors = [];
 
-// create a temoporary table for inserting data
+// create a temporary table for inserting data
 const evictionTableSQL = `DROP TABLE IF EXISTS ${TmpTableName};
 CREATE TABLE IF NOT EXISTS ${TmpTableName} (
   case_number VARCHAR ( 32 ) PRIMARY KEY,
   date DATE NOT NULL,
   amount NUMERIC ( 10, 2 ),
-  subprecinct_id VARCHAR ( 32 ),
-  precinct_id VARCHAR ( 32 ),
-  council_id VARCHAR ( 32 ),
-  city_id VARCHAR ( 32 ),
-  zip_id VARCHAR ( 5 ),
-  tract_id VARCHAR ( 11 ),
-  county_id VARCHAR ( 5 ),
-  elem_id VARCHAR ( 4 ),
-  midd_id VARCHAR ( 4 ),
-  high_id VARCHAR ( 4 ),
   lon NUMERIC ( 10, 7 ),
   lat NUMERIC ( 10, 7 )
+  region_ids JSONB,
 );`;
 
 const baseParams = {
   secretArn: DBSecretsStoreArn,
   resourceArn: DBAuroraClusterArn,
   database: DatabaseName,
-};
+}
 
 async function createTables() {
   console.log("create temporary table", evictionTableSQL);
@@ -68,7 +60,7 @@ const getInsertStatement = (data: object) => {
 const stripNonNumeric = (id: string) => {
   const stripped = String(id).replace(/\D/g, "");
   return stripped || "null";
-}
+};
 
 async function insertBatch(entries: any) {
   const sqlStatements = entries.map(getInsertStatement);
@@ -100,38 +92,30 @@ const loadData = async (bucket: string, filename: string): Promise<any> => {
     const rows = [];
     const ids: any = {};
     for (const record of records) {
-      if (!record.case_number) {
+      const { case_number, date, amount, lon, lat, ...region_ids } = record;
+      if (!case_number) {
         console.warn("skipping row, missing case_number:", record);
         continue;
       }
-      if (!record.date) {
+      if (!date) {
         console.warn("skipping row, missing date:", record);
         continue;
       }
-      if (ids[record.case_number]) {
+      if (ids[case_number]) {
         console.warn("skipping row, duplicate case_number:", record);
         continue;
       }
       rows.push({
-        case_number: `'${record.case_number}'`,
-        date: `'${record.date}'`,
-        amount: record.amount ? Number(record.amount) : "null",
-        subprecinct_id: stripNonNumeric(record.subprecinct_id),
-        precinct_id: stripNonNumeric(record.precinct_id),
-        council_id: stripNonNumeric(record.council_id),
-        city_id: stripNonNumeric(record.city_id),
-        zip_id: stripNonNumeric(record.zip_id),
-        tract_id: stripNonNumeric(record.tract_id),
-        county_id: stripNonNumeric(record.county_id),
-        elem_id: stripNonNumeric(record.elem_id),
-        midd_id: stripNonNumeric(record.midd_id),
-        high_id: stripNonNumeric(record.high_id),
-        lon: record.lon ? Number(record.lon) : "null",
-        lat: record.lat ? Number(record.lat) : "null",
+        case_number: `'${case_number}'`,
+        date: `'${date}'`,
+        amount: amount ? Number(amount) : "null",
+        lon: lon ? Number(lon) : "null",
+        lat: lat ? Number(lat) : "null",
+        regions_ids: mapValues(region_ids, stripNonNumeric),
       });
       ids[record.case_number] = true;
     }
-    console.log("done loading.")
+    console.log("done loading.");
     return rows;
   } catch (err) {
     console.error(err);
@@ -152,7 +136,7 @@ const insertData = async (data: object[]) => {
       // console.log("next row: ", data[0])
     }
   }
-  console.log("done inserting.")
+  console.log("done inserting.");
 };
 
 /**

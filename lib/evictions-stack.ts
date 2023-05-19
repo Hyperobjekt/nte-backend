@@ -11,7 +11,7 @@ import { CorsHttpMethod } from "@aws-cdk/aws-apigatewayv2";
 
 const DB_NAME = "EvictionsDB";
 
-export class NtepStack extends cdk.Stack {
+export class EvictionsStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
@@ -55,17 +55,17 @@ export class NtepStack extends cdk.Stack {
      * data loader lambda function, and data bucket.
      * @param id identifier for the environment
      */
-    const createEnv = (id: string) => {
+    const createEnv = (stage: string) => {
       /**
        * SETUP THE LAMBDA FUNCTION THAT WILL QUERY AURORA BASED ON HTTP REQUESTS
        */
-      const queryFn = new lambda.Function(this, `${id}QueryFunction`, {
+      const queryFn = new lambda.Function(this, `${stage}QueryFunction`, {
         runtime: lambda.Runtime.NODEJS_14_X,
         code: new lambda.AssetCode("functions/api"),
         handler: "index.handler",
         memorySize: 1024,
         environment: {
-          NTEP_ENV: id,
+          STAGE: stage,
           CLUSTER_ARN: cluster.clusterArn,
           SECRET_ARN: cluster.secret?.secretArn || "",
           DB_NAME: DB_NAME,
@@ -77,7 +77,7 @@ export class NtepStack extends cdk.Stack {
       cluster.grantDataApiAccess(queryFn);
 
       // create the API Gateway with one method and path
-      let api = new apigw.HttpApi(this, `${id}Endpoint`, {
+      let api = new apigw.HttpApi(this, `${stage}Endpoint`, {
         defaultIntegration: new integrations.LambdaProxyIntegration({
           handler: queryFn,
         }),
@@ -106,21 +106,21 @@ export class NtepStack extends cdk.Stack {
        */
 
       // 1. add a bucket for storing source data
-      const bucket = new s3.Bucket(this, `${id}DataStore`, {
+      const bucket = new s3.Bucket(this, `${stage}DataStore`, {
         // ensure the bucket is properly deleted when running `cdk destroy`
         autoDeleteObjects: true,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       });
 
       // 2. create the lambda function that is triggered by S3 PUT events
-      const loaderFn = new lambda.Function(this, `${id}LoaderFunction`, {
+      const loaderFn = new lambda.Function(this, `${stage}LoaderFunction`, {
         runtime: lambda.Runtime.NODEJS_14_X,
         code: lambda.Code.fromAsset("functions/loader"),
         handler: "index.handler",
         description: "handles loading data from S3 bucket into Aurora DB",
         memorySize: 1024,
         environment: {
-          NTEP_ENV: id,
+          STAGE: stage,
           BUCKET: bucket.bucketName,
           CLUSTER_ARN: cluster.clusterArn,
           SECRET_ARN: cluster.secret?.secretArn || "",
@@ -143,17 +143,17 @@ export class NtepStack extends cdk.Stack {
       cluster.grantDataApiAccess(loaderFn);
 
       // output API endpoint URL for this environment
-      new cdk.CfnOutput(this, `${id}ApiUrl`, {
+      new cdk.CfnOutput(this, `${stage}ApiUrl`, {
         value: api.url ?? "Something went wrong with the deploy",
-        description: `${id} URL of the API Gateway`,
-        exportName: `${id}ApiUrl`,
+        description: `${stage} URL of the API Gateway`,
+        exportName: `${stage}ApiUrl`,
       });
 
       // output data bucket name for this environment
-      new cdk.CfnOutput(this, `${id}DataBucket`, {
+      new cdk.CfnOutput(this, `${stage}DataBucket`, {
         value: bucket.bucketName,
-        description: `source file store for ${id} environment`,
-        exportName: `${id}DataBucket`,
+        description: `source file store for ${stage} environment`,
+        exportName: `${stage}DataBucket`,
       });
     };
 

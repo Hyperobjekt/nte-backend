@@ -1,6 +1,6 @@
 import db from "./db";
 
-interface NtepLocationSummaryParams {
+interface EvictionLocationSummaryParams {
   start: string;
   end: string;
   zips?: string;
@@ -15,7 +15,7 @@ interface NtepLocationSummaryParams {
   format?: string;
 }
 
-interface NtepQueryParams {
+interface EvictionQueryParams {
   start: string;
   end: string;
   region?: string;
@@ -23,50 +23,24 @@ interface NtepQueryParams {
   format?: string;
 }
 
-interface NtepQueryResult {
+interface EvictionQueryResult {
   id: string;
   filings: number;
   median_filed_amount: number;
   date?: string;
 }
 
-// Maps the provided region param to a column prefix in the database table
-const REGION_MAP: any = {
-  counties: "county",
-  tracts: "tract",
-  cities: "city",
-  zips: "zip",
-  districts: "council",
-  courts: "precinct",
-  attendanceel: "elem",
-  attendancemi: "midd",
-  attendancehi: "high",
-  subprecints: "subprecinct",
-};
-
-const TABLE_NAME = `evictions_${process.env.NTEP_ENV}`;
+const TABLE_NAME = `evictions_${process.env.STAGE}`;
 
 /**
  * Parses the request parameters, and sets defaults if none are provided
  */
 const getQueryParams = (params: any = {}): any => {
-  const result: any = {
+  return {
+    ...params,
     start: params.start || "2021-01-01",
     end: params.end || new Date().toISOString().split("T")[0],
   };
-  if (params.region) result.region = params.region;
-  if (params.location) result.location = params.location;
-  if (params.format) result.format = params.format;
-  if (params.zips) result.zips = params.zips
-  if (params.counties) result.counties = params.counties
-  if (params.tracts) result.tracts = params.tracts
-  if (params.cities) result.cities = params.cities
-  if (params.districts) result.districts = params.districts
-  if (params.attendanceel) result.attendanceel = params.attendanceel
-  if (params.attendancemi) result.attendancemi = params.attendancemi
-  if (params.attendancehi) result.attendancehi = params.attendancehi
-  if (params.courts) result.courts = params.courts
-  return result;
 };
 
 /**
@@ -75,7 +49,7 @@ const getQueryParams = (params: any = {}): any => {
  */
 const areParamsValid = (params: any) => {
   const { region, start, end, location } = params;
-  const validRegion = !region || REGION_MAP[region];
+  const validRegion = !region || region;
   if (!validRegion) return "invalid region";
 
   const validLocation =
@@ -91,18 +65,18 @@ const areParamsValid = (params: any) => {
 /**
  * Returns an SQL query string for the given parameters
  */
-const getSummarySqlQuery = (params: NtepQueryParams) => {
+const getSummarySqlQuery = (params: EvictionQueryParams) => {
   const { region } = params;
   let sqlQuery = region
     ? `
     SELECT
-      ${REGION_MAP[region]}_id,
+      ${region}_id,
       COUNT(case_number) as filings,
       median(amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
     FROM ${TABLE_NAME}
     WHERE date BETWEEN :start AND :end
-    GROUP BY ${REGION_MAP[region]}_id
+    GROUP BY ${region}_id
     ORDER BY filings DESC`
     : `
     SELECT
@@ -118,7 +92,7 @@ const getSummarySqlQuery = (params: NtepQueryParams) => {
 /**
  * Returns total counts of filings and overall median for the given parameters
  */
-const getSummary = async (params: NtepQueryParams) => {
+const getSummary = async (params: EvictionQueryParams) => {
   const { format, ...restParams } = params;
   const region = restParams.region;
   const sqlQuery = getSummarySqlQuery(restParams);
@@ -127,18 +101,18 @@ const getSummary = async (params: NtepQueryParams) => {
   console.log("received records");
   const rows = Array.isArray(result)
     ? result.map(
-        ({
-          filings,
-          median_filed_amount,
-          total_filed_amount,
-          ...rest
-        }: any) => ({
-          id: region ? rest[REGION_MAP[region] + "_id"] : "all",
-          ef: filings,
-          mfa: median_filed_amount && Number(median_filed_amount),
-          tfa: total_filed_amount && Number(total_filed_amount),
-        })
-      )
+      ({
+        filings,
+        median_filed_amount,
+        total_filed_amount,
+        ...rest
+      }: any) => ({
+        id: region ? rest[region + "_id"] : "all",
+        ef: filings,
+        mfa: median_filed_amount && Number(median_filed_amount),
+        tfa: total_filed_amount && Number(total_filed_amount),
+      })
+    )
     : result;
   if (format === "csv") return objectArrayToCsv(rows);
   return {
@@ -164,7 +138,7 @@ const getLocationsSummarySqlQuery = (params: any) => {
   ];
   const locationsQuery = regions.reduce((query: Array<string>, region) => {
     if (params.hasOwnProperty(region)) {
-      const column = REGION_MAP[region] + '_id';
+      const column = region + '_id';
       // wrap location IDs in quotes
       const values = params[region].split(",").map((v: any) => `'${v}'`).join(',');
       query.push(`${column} IN (${values})`);
@@ -217,19 +191,19 @@ const getLocations = async (params: any) => {
 /**
  * Returns an SQL query for the given params
  */
-const getFilingsSqlQuery = (params: NtepQueryParams) => {
+const getFilingsSqlQuery = (params: EvictionQueryParams) => {
   const { region, location } = params;
   let sqlQuery = region
     ? `
     SELECT
-      ${REGION_MAP[region]}_id,
+      ${region}_id,
       date,
       COUNT(case_number) as filings,
       median(amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
     FROM ${TABLE_NAME}
     WHERE date BETWEEN :start AND :end
-    GROUP BY ${REGION_MAP[region]}_id,date
+    GROUP BY ${region}_id,date
     ORDER BY date DESC`
     : `
     SELECT
@@ -244,7 +218,7 @@ const getFilingsSqlQuery = (params: NtepQueryParams) => {
   if (region && location)
     sqlQuery = sqlQuery.replace(
       /WHERE /g,
-      `WHERE ${REGION_MAP[region]}_id = :location AND `
+      `WHERE ${region}_id = :location AND `
     );
   console.log("filings query", sqlQuery);
   return sqlQuery;
@@ -253,7 +227,7 @@ const getFilingsSqlQuery = (params: NtepQueryParams) => {
 /**
  * Returns time series filing data for the given params
  */
-const getFilings = async (params: NtepQueryParams) => {
+const getFilings = async (params: EvictionQueryParams) => {
   const { format, ...restParams } = params;
   const sqlQuery = getFilingsSqlQuery(restParams);
   const region = restParams["region"] || "counties";
@@ -266,7 +240,7 @@ const getFilings = async (params: NtepQueryParams) => {
       total_filed_amount,
       ...rest
     }: any) => ({
-      id: rest[REGION_MAP[region] + "_id"],
+      id: rest[region + "_id"],
       date: date,
       ef: filings,
       mfa: median_filed_amount && Number(median_filed_amount),
@@ -319,7 +293,7 @@ const getPrecincts = async () => {
 /**
  * Runs the query and returns the result
  */
-async function query(sqlQuery: string, params: NtepQueryParams) {
+async function query(sqlQuery: string, params: EvictionQueryParams) {
   // cast date strings to date objects for query
   const queryParams: any = {
     ...params,
