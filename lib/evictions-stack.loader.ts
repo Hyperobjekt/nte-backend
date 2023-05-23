@@ -88,7 +88,7 @@ const loadData = async (bucket: string, filename: string): Promise<any> => {
     const data = file?.Body?.toString("utf-8");
     console.log("Loaded file from S3: %s", `${bucket}/${filename}`);
     if (!data) console.error("failed to load data");
-    const records = parse(data, { columns: true, skip_empty_lines: true }) >;
+    const records = parse(data, { columns: true, skip_empty_lines: true });
     const rows = [];
     const ids: any = {};
     for (const record of records) {
