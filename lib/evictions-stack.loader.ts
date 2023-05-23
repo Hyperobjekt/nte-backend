@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS ${TmpTableName} (
   date DATE NOT NULL,
   amount NUMERIC ( 10, 2 ),
   lon NUMERIC ( 10, 7 ),
-  lat NUMERIC ( 10, 7 )
-  region_ids JSONB,
+  lat NUMERIC ( 10, 7 ),
+  region_ids JSONB
 );`;
 
 const baseParams = {
@@ -88,7 +88,7 @@ const loadData = async (bucket: string, filename: string): Promise<any> => {
     const data = file?.Body?.toString("utf-8");
     console.log("Loaded file from S3: %s", `${bucket}/${filename}`);
     if (!data) console.error("failed to load data");
-    const records = parse(data, { columns: true, skip_empty_lines: true });
+    const records = parse(data, { columns: true, skip_empty_lines: true }) >;
     const rows = [];
     const ids: any = {};
     for (const record of records) {
@@ -111,7 +111,7 @@ const loadData = async (bucket: string, filename: string): Promise<any> => {
         amount: amount ? Number(amount) : "null",
         lon: lon ? Number(lon) : "null",
         lat: lat ? Number(lat) : "null",
-        regions_ids: mapValues(region_ids, stripNonNumeric),
+        region_ids: `'${JSON.stringify(mapValues(region_ids, stripNonNumeric))}'`,
       });
       ids[record.case_number] = true;
     }
@@ -172,7 +172,7 @@ exports.handler = async (event: any) => {
     await s3.deleteObject({ Bucket: bucket, Key: file }).promise();
     console.log("removed source file: %s", `${bucket}/${file}`);
     if (errors.length > 0) {
-      throw new Error(`unable to load data due to ${errors.length} errors`);
+      throw new Error(`unable to load data due to ${errors.length} errors: ${errors.map(JSON.stringify)}`);
     }
     await promoteTmpTable();
     console.log("promoted temporary table to active table");

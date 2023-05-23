@@ -1,6 +1,6 @@
 import * as cdk from "@aws-cdk/core";
 import * as ec2 from "@aws-cdk/aws-ec2";
-import * as lambda from "@aws-cdk/aws-lambda";
+import * as lambda from "@aws-cdk/aws-lambda-nodejs";
 import * as rds from "@aws-cdk/aws-rds";
 import * as apigw from "@aws-cdk/aws-apigatewayv2";
 import * as integrations from "@aws-cdk/aws-apigatewayv2-integrations";
@@ -39,6 +39,7 @@ export class EvictionsStack extends cdk.Stack {
     // Create the Serverless Aurora DB cluster; set the engine to Postgres
     const cluster = new rds.ServerlessCluster(this, "AuroraEvictionsCluster", {
       engine: rds.DatabaseClusterEngine.AURORA_POSTGRESQL,
+      enableDataApi: true,
       parameterGroup: rds.ParameterGroup.fromParameterGroupName(
         this,
         "ParameterGroup",
@@ -59,10 +60,8 @@ export class EvictionsStack extends cdk.Stack {
       /**
        * SETUP THE LAMBDA FUNCTION THAT WILL QUERY AURORA BASED ON HTTP REQUESTS
        */
-      const queryFn = new lambda.Function(this, `${stage}QueryFunction`, {
-        runtime: lambda.Runtime.NODEJS_14_X,
-        code: new lambda.AssetCode("functions/api"),
-        handler: "index.handler",
+      const queryFn = new lambda.NodejsFunction(this, `${stage}QueryFunction`, {
+        entry: __dirname + '/evictions-stack.api.ts',
         memorySize: 1024,
         environment: {
           STAGE: stage,
@@ -78,9 +77,7 @@ export class EvictionsStack extends cdk.Stack {
 
       // create the API Gateway with one method and path
       let api = new apigw.HttpApi(this, `${stage}Endpoint`, {
-        defaultIntegration: new integrations.LambdaProxyIntegration({
-          handler: queryFn,
-        }),
+        defaultIntegration: new integrations.HttpLambdaIntegration(`${stage}Integration`, queryFn),
         corsPreflight: {
           allowHeaders: [
             "Content-Type",
@@ -113,10 +110,8 @@ export class EvictionsStack extends cdk.Stack {
       });
 
       // 2. create the lambda function that is triggered by S3 PUT events
-      const loaderFn = new lambda.Function(this, `${stage}LoaderFunction`, {
-        runtime: lambda.Runtime.NODEJS_14_X,
-        code: lambda.Code.fromAsset("functions/loader"),
-        handler: "index.handler",
+      const loaderFn = new lambda.NodejsFunction(this, `${stage}LoaderFunction`, {
+        entry: __dirname + '/evictions-stack.loader.ts',
         description: "handles loading data from S3 bucket into Aurora DB",
         memorySize: 1024,
         environment: {
