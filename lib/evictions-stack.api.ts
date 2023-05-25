@@ -30,6 +30,19 @@ interface EvictionQueryResult {
   date?: string;
 }
 
+const REGION_MAP: any = {
+  counties: "county",
+  tracts: "tract",
+  cities: "city",
+  zips: "zip",
+  districts: "council",
+  courts: "precinct",
+  attendanceel: "elem",
+  attendancemi: "midd",
+  attendancehi: "high",
+  subprecints: "subprecinct",
+};
+
 const TABLE_NAME = `evictions_${process.env.STAGE}`;
 
 /**
@@ -66,22 +79,23 @@ const areParamsValid = (params: any) => {
  * Returns an SQL query string for the given parameters
  */
 const getSummarySqlQuery = (params: EvictionQueryParams) => {
-  const { region } = params;
+  const { region: regionParam } = params;
+  const region = REGION_MAP[regionParam]
   let sqlQuery = region
     ? `
     SELECT
-      ${region}_id,
+      region_ids::jsonb->'${region}_id',
       COUNT(case_number) as filings,
-      median(amount) as median_filed_amount,
+      percentile_cont(0.5) WITHIN GROUP (ORDER BY amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
     FROM ${TABLE_NAME}
     WHERE date BETWEEN :start AND :end
-    GROUP BY ${region}_id
+    GROUP BY region_ids::jsonb->'${region}_id'
     ORDER BY filings DESC`
     : `
     SELECT
       COUNT(case_number) as filings,
-      median(amount) as median_filed_amount,
+      percentile_cont(0.5) WITHIN GROUP (ORDER BY amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
     FROM ${TABLE_NAME}
     WHERE date BETWEEN :start AND :end
@@ -107,7 +121,7 @@ const getSummary = async (params: EvictionQueryParams) => {
         total_filed_amount,
         ...rest
       }: any) => ({
-        id: region ? rest[region + "_id"] : "all",
+        id: region ? rest[REGION_MAP[region] + "_id"] : "all",
         ef: filings,
         mfa: median_filed_amount && Number(median_filed_amount),
         tfa: total_filed_amount && Number(total_filed_amount),
@@ -150,7 +164,7 @@ const getLocationsSummarySqlQuery = (params: any) => {
     SELECT
       date,
       COUNT(case_number) as filings,
-      median(amount) as median_filed_amount,
+      percentile_cont(0.5) WITHIN GROUP (ORDER BY amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
     FROM ${TABLE_NAME}
     WHERE (date BETWEEN :start AND :end) AND (${locationsQuery})
@@ -199,7 +213,7 @@ const getFilingsSqlQuery = (params: EvictionQueryParams) => {
       ${region}_id,
       date,
       COUNT(case_number) as filings,
-      median(amount) as median_filed_amount,
+      percentile_cont(0.5) WITHIN GROUP (ORDER BY amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
     FROM ${TABLE_NAME}
     WHERE date BETWEEN :start AND :end
@@ -209,7 +223,7 @@ const getFilingsSqlQuery = (params: EvictionQueryParams) => {
     SELECT
       date,
       COUNT(case_number) as filings,
-      median(amount) as median_filed_amount,
+      percentile_cont(0.5) WITHIN GROUP (ORDER BY amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
     FROM ${TABLE_NAME}
     WHERE date BETWEEN :start AND :end
