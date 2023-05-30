@@ -141,7 +141,7 @@ const getSummary = async (params: EvictionQueryParams) => {
 const getLocationsSummarySqlQuery = (params: any) => {
   const regions = [
     "zips",
-    "counties",
+    "county",
     "tracts",
     "cities",
     "districts",
@@ -155,7 +155,7 @@ const getLocationsSummarySqlQuery = (params: any) => {
       const column = region + '_id';
       // wrap location IDs in quotes
       const values = params[region].split(",").map((v: any) => `'${v}'`).join(',');
-      query.push(`${column} IN (${values})`);
+      query.push(`region_ids->>'${column}' IN (${values})`);
     }
     return query;
   }, []).join(" OR ");
@@ -206,12 +206,14 @@ const getLocations = async (params: any) => {
  * Returns an SQL query for the given params
  */
 const getFilingsSqlQuery = (params: EvictionQueryParams) => {
-  const { region, location } = params;
+  const { region: regionParam, location } = params;
+  const region = REGION_MAP[regionParam] || regionParam
+
   let sqlQuery = region
     ? `
     SELECT
-    region_ids->>'${region}_id' as ${region}_id,
-    date,
+      region_ids->>'${region}_id' as ${region}_id,
+      date,
       COUNT(case_number) as filings,
       percentile_cont(0.5) WITHIN GROUP (ORDER BY amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
@@ -232,7 +234,7 @@ const getFilingsSqlQuery = (params: EvictionQueryParams) => {
   if (region && location)
     sqlQuery = sqlQuery.replace(
       /WHERE /g,
-      `WHERE ${region}_id = :location AND `
+      `WHERE region_ids->>'${region}_id' = :location AND `
     );
   console.log("filings query", sqlQuery);
   return sqlQuery;
@@ -244,7 +246,7 @@ const getFilingsSqlQuery = (params: EvictionQueryParams) => {
 const getFilings = async (params: EvictionQueryParams) => {
   const { format, ...restParams } = params;
   const sqlQuery = getFilingsSqlQuery(restParams);
-  const region = restParams["region"] || "counties";
+  const region = restParams["region"] || "county";
   const result = await query(sqlQuery, restParams);
   const rows = result.map(
     ({
@@ -254,7 +256,7 @@ const getFilings = async (params: EvictionQueryParams) => {
       total_filed_amount,
       ...rest
     }: any) => ({
-      id: rest[region + "_id"],
+      id: rest[(REGION_MAP[region] || 'county') + "_id"],
       date: date,
       ef: filings,
       mfa: median_filed_amount && Number(median_filed_amount),
