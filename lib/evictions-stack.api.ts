@@ -80,17 +80,17 @@ const areParamsValid = (params: any) => {
  */
 const getSummarySqlQuery = (params: EvictionQueryParams) => {
   const { region: regionParam } = params;
-  const region = REGION_MAP[regionParam]
+  const region = REGION_MAP[regionParam] || regionParam
   let sqlQuery = region
     ? `
     SELECT
-      region_ids::jsonb->'${region}_id',
+      region_ids->>'${region}_id' as ${region}_id,
       COUNT(case_number) as filings,
       percentile_cont(0.5) WITHIN GROUP (ORDER BY amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
     FROM ${TABLE_NAME}
     WHERE date BETWEEN :start AND :end
-    GROUP BY region_ids::jsonb->'${region}_id'
+    GROUP BY ${region}_id
     ORDER BY filings DESC`
     : `
     SELECT
@@ -121,7 +121,7 @@ const getSummary = async (params: EvictionQueryParams) => {
         total_filed_amount,
         ...rest
       }: any) => ({
-        id: region ? rest[REGION_MAP[region] + "_id"] : "all",
+        id: region ? rest[(REGION_MAP[region] || region) + "_id"] : "all",
         ef: filings,
         mfa: median_filed_amount && Number(median_filed_amount),
         tfa: total_filed_amount && Number(total_filed_amount),
@@ -210,8 +210,8 @@ const getFilingsSqlQuery = (params: EvictionQueryParams) => {
   let sqlQuery = region
     ? `
     SELECT
-      ${region}_id,
-      date,
+    region_ids->>'${region}_id' as ${region}_id,
+    date,
       COUNT(case_number) as filings,
       percentile_cont(0.5) WITHIN GROUP (ORDER BY amount) as median_filed_amount,
       SUM(amount) as total_filed_amount
