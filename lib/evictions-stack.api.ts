@@ -263,7 +263,6 @@ const getFilings = async (params: EvictionQueryParams) => {
       tfa: total_filed_amount && Number(total_filed_amount),
     })
   );
-  console.log("got results: %j", records.length);
   if (format === "csv") return objectArrayToCsv(rows);
   return {
     ...restParams,
