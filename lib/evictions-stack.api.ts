@@ -123,8 +123,8 @@ const getSummary = async (params: EvictionQueryParams) => {
       }: any) => ({
         id: region ? rest[(REGION_MAP[region] || region) + "_id"] : "all",
         ef: filings,
-        mfa: median_filed_amount && Number(median_filed_amount),
-        tfa: total_filed_amount && Number(total_filed_amount),
+        mfa: (median_filed_amount && Number(median_filed_amount)) || undefined,
+        tfa: (total_filed_amount && Number(total_filed_amount)) || undefined,
       })
     )
     : result;
@@ -191,8 +191,8 @@ const getLocations = async (params: any) => {
     }: any) => ({
       date: date,
       ef: filings,
-      mfa: median_filed_amount && Number(median_filed_amount),
-      tfa: total_filed_amount && Number(total_filed_amount),
+      mfa: (median_filed_amount && Number(median_filed_amount)) || undefined,
+      tfa: (total_filed_amount && Number(total_filed_amount)) || undefined,
     })
   );
   if (format === "csv") return objectArrayToCsv(rows);
@@ -259,10 +259,11 @@ const getFilings = async (params: EvictionQueryParams) => {
       id: rest[(REGION_MAP[region] || 'county') + "_id"],
       date: date,
       ef: filings,
-      mfa: median_filed_amount && Number(median_filed_amount),
-      tfa: total_filed_amount && Number(total_filed_amount),
+      mfa: (median_filed_amount && Number(median_filed_amount)) || undefined,
+      tfa: (total_filed_amount && Number(total_filed_amount)) || undefined,
     })
   );
+  console.log("got filing results: %j", rows);
   if (format === "csv") return objectArrayToCsv(rows);
   return {
     ...restParams,
