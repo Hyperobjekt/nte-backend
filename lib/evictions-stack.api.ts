@@ -80,7 +80,7 @@ const areParamsValid = (params: any) => {
  */
 const getSummarySqlQuery = (params: EvictionQueryParams) => {
   const { region: regionParam } = params;
-  const region = REGION_MAP[regionParam] || regionParam
+  const region = REGION_MAP[regionParam] || regionParam;
   let sqlQuery = region
     ? `
     SELECT
@@ -123,8 +123,8 @@ const getSummary = async (params: EvictionQueryParams) => {
       }: any) => ({
         id: region ? rest[(REGION_MAP[region] || region) + "_id"] : "all",
         ef: filings,
-        mfa: (median_filed_amount && Number(median_filed_amount)) || undefined,
-        tfa: (total_filed_amount && Number(total_filed_amount)) || undefined,
+        mfa: median_filed_amount && Number(median_filed_amount),
+        tfa: total_filed_amount && Number(total_filed_amount),
       })
     )
     : result;
@@ -150,15 +150,20 @@ const getLocationsSummarySqlQuery = (params: any) => {
     "attendancehi",
     "courts",
   ];
-  const locationsQuery = regions.reduce((query: Array<string>, region) => {
-    if (params.hasOwnProperty(region)) {
-      const column = region + '_id';
-      // wrap location IDs in quotes
-      const values = params[region].split(",").map((v: any) => `'${v}'`).join(',');
-      query.push(`region_ids->>'${column}' IN (${values})`);
-    }
-    return query;
-  }, []).join(" OR ");
+  const locationsQuery = regions
+    .reduce((query: Array<string>, region) => {
+      if (params.hasOwnProperty(region)) {
+        const column = region + "_id";
+        // wrap location IDs in quotes
+        const values = params[region]
+          .split(",")
+          .map((v: any) => `'${v}'`)
+          .join(",");
+        query.push(`region_ids->>'${column}' IN (${values})`);
+      }
+      return query;
+    }, [])
+    .join(" OR ");
 
   let sqlQuery = `
     SELECT
@@ -183,16 +188,11 @@ const getLocations = async (params: any) => {
   const sqlQuery = getLocationsSummarySqlQuery(restParams);
   const result = await query(sqlQuery, restParams);
   const rows = result.map(
-    ({
-      date,
-      filings,
-      median_filed_amount,
-      total_filed_amount
-    }: any) => ({
+    ({ date, filings, median_filed_amount, total_filed_amount }: any) => ({
       date: date,
       ef: filings,
-      mfa: (median_filed_amount && Number(median_filed_amount)) || undefined,
-      tfa: (total_filed_amount && Number(total_filed_amount)) || undefined,
+      mfa: median_filed_amount && Number(median_filed_amount),
+      tfa: total_filed_amount && Number(total_filed_amount),
     })
   );
   if (format === "csv") return objectArrayToCsv(rows);
@@ -200,14 +200,14 @@ const getLocations = async (params: any) => {
     ...restParams,
     result: rows,
   };
-}
+};
 
 /**
  * Returns an SQL query for the given params
  */
 const getFilingsSqlQuery = (params: EvictionQueryParams) => {
   const { region: regionParam, location } = params;
-  const region = REGION_MAP[regionParam] || regionParam
+  const region = REGION_MAP[regionParam] || regionParam;
 
   let sqlQuery = region
     ? `
@@ -256,14 +256,14 @@ const getFilings = async (params: EvictionQueryParams) => {
       total_filed_amount,
       ...rest
     }: any) => ({
-      id: rest[(REGION_MAP[region] || 'county') + "_id"],
+      id: rest[(REGION_MAP[region] || "county") + "_id"],
       date: date,
       ef: filings,
-      mfa: (median_filed_amount && Number(median_filed_amount)) || undefined,
-      tfa: (total_filed_amount && Number(total_filed_amount)) || undefined,
+      mfa: median_filed_amount && Number(median_filed_amount),
+      tfa: total_filed_amount && Number(total_filed_amount),
     })
   );
-  console.log("got filing results: %j", rows);
+  console.log("got results: %j", records.length);
   if (format === "csv") return objectArrayToCsv(rows);
   return {
     ...restParams,
