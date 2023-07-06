@@ -1,18 +1,24 @@
-import * as cdk from "@aws-cdk/core";
-import * as ec2 from "@aws-cdk/aws-ec2";
-import * as lambda from "@aws-cdk/aws-lambda-nodejs";
-import * as rds from "@aws-cdk/aws-rds";
-import * as apigw from "@aws-cdk/aws-apigatewayv2";
-import * as integrations from "@aws-cdk/aws-apigatewayv2-integrations";
-import * as s3 from "@aws-cdk/aws-s3";
-import * as lambdaEventSources from "@aws-cdk/aws-lambda-event-sources";
-import { Duration } from "@aws-cdk/core";
-import { CorsHttpMethod } from "@aws-cdk/aws-apigatewayv2";
+import {
+  Stack,
+  Duration,
+  StackProps,
+  RemovalPolicy,
+  CfnOutput,
+  aws_ec2 as ec2,
+  aws_lambda_nodejs as lambda,
+  aws_rds as rds,
+  aws_s3 as s3,
+  aws_lambda_event_sources as lambdaEventSources
+} from "aws-cdk-lib";
+import { HttpLambdaIntegration } from '@aws-cdk/aws-apigatewayv2-integrations-alpha';
+import * as apigw from '@aws-cdk/aws-apigatewayv2-alpha';
+import { Construct } from 'constructs'
+
 
 const DB_NAME = "EvictionsDB";
 
-export class EvictionsStack extends cdk.Stack {
-  constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+export class EvictionsStack extends Stack {
+  constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
     /**
@@ -30,7 +36,7 @@ export class EvictionsStack extends cdk.Stack {
         },
         {
           cidrMask: 24,
-          subnetType: ec2.SubnetType.ISOLATED,
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
           name: "isolated",
         }
       ]
@@ -43,12 +49,12 @@ export class EvictionsStack extends cdk.Stack {
       parameterGroup: rds.ParameterGroup.fromParameterGroupName(
         this,
         "ParameterGroup",
-        "default.aurora-postgresql10"
+        "default.aurora-postgresql13"
       ),
       defaultDatabaseName: DB_NAME,
       vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.ISOLATED },
-      scaling: { autoPause: cdk.Duration.hours(12) },
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+      scaling: { autoPause: Duration.hours(12) },
     });
 
     /**
@@ -77,7 +83,7 @@ export class EvictionsStack extends cdk.Stack {
 
       // create the API Gateway with one method and path
       let api = new apigw.HttpApi(this, `${stage}Endpoint`, {
-        defaultIntegration: new integrations.HttpLambdaIntegration(`${stage}Integration`, queryFn),
+        defaultIntegration: new HttpLambdaIntegration(`${stage}Integration`, queryFn),
         corsPreflight: {
           allowHeaders: [
             "Content-Type",
@@ -86,10 +92,10 @@ export class EvictionsStack extends cdk.Stack {
             "X-Api-Key",
           ],
           allowMethods: [
-            CorsHttpMethod.OPTIONS,
-            CorsHttpMethod.GET,
-            CorsHttpMethod.POST,
-            CorsHttpMethod.PUT,
+            apigw.CorsHttpMethod.OPTIONS,
+            apigw.CorsHttpMethod.GET,
+            apigw.CorsHttpMethod.POST,
+            apigw.CorsHttpMethod.PUT,
           ],
           allowOrigins: ["*"],
         },
@@ -106,7 +112,7 @@ export class EvictionsStack extends cdk.Stack {
       const bucket = new s3.Bucket(this, `${stage}DataStore`, {
         // ensure the bucket is properly deleted when running `cdk destroy`
         autoDeleteObjects: true,
-        removalPolicy: cdk.RemovalPolicy.DESTROY,
+        removalPolicy: RemovalPolicy.DESTROY,
       });
 
       // 2. create the lambda function that is triggered by S3 PUT events
@@ -138,14 +144,14 @@ export class EvictionsStack extends cdk.Stack {
       cluster.grantDataApiAccess(loaderFn);
 
       // output API endpoint URL for this environment
-      new cdk.CfnOutput(this, `${stage}ApiUrl`, {
+      new CfnOutput(this, `${stage}ApiUrl`, {
         value: api.url ?? "Something went wrong with the deploy",
         description: `${stage} URL of the API Gateway`,
         exportName: `${stage}ApiUrl`,
       });
 
       // output data bucket name for this environment
-      new cdk.CfnOutput(this, `${stage}DataBucket`, {
+      new CfnOutput(this, `${stage}DataBucket`, {
         value: bucket.bucketName,
         description: `source file store for ${stage} environment`,
         exportName: `${stage}DataBucket`,
