@@ -1,20 +1,5 @@
 import db from "./db";
 
-interface EvictionLocationSummaryParams {
-  start: string;
-  end: string;
-  zips?: string;
-  counties?: string;
-  tracts?: string;
-  cities?: string;
-  districts?: string;
-  courts?: string;
-  attendanceel?: string;
-  attendancemi?: string;
-  attendancehi?: string;
-  format?: string;
-}
-
 interface EvictionQueryParams {
   start: string;
   end: string;
@@ -29,19 +14,6 @@ interface EvictionQueryResult {
   median_filed_amount: number;
   date?: string;
 }
-
-const REGION_MAP: any = {
-  counties: "county",
-  tracts: "tract",
-  cities: "city",
-  zips: "zip",
-  districts: "council",
-  courts: "precinct",
-  attendanceel: "elem",
-  attendancemi: "midd",
-  attendancehi: "high",
-  subprecints: "subprecinct",
-};
 
 const TABLE_NAME = `evictions_${process.env.STAGE}`;
 
@@ -79,8 +51,7 @@ const areParamsValid = (params: any) => {
  * Returns an SQL query string for the given parameters
  */
 const getSummarySqlQuery = (params: EvictionQueryParams) => {
-  const { region: regionParam } = params;
-  const region = REGION_MAP[regionParam] || regionParam;
+  const { region } = params;
   let sqlQuery = region
     ? `
     SELECT
@@ -121,7 +92,7 @@ const getSummary = async (params: EvictionQueryParams) => {
         total_filed_amount,
         ...rest
       }: any) => ({
-        id: region ? rest[(REGION_MAP[region] || region) + "_id"] : "all",
+        id: region ? rest[region + "_id"] : "all",
         ef: filings,
         mfa: median_filed_amount && Number(median_filed_amount),
         tfa: total_filed_amount && Number(total_filed_amount),
@@ -138,18 +109,11 @@ const getSummary = async (params: EvictionQueryParams) => {
 /**
  * Creates an SQL query for querying values by date for a collection of locations
  */
-const getLocationsSummarySqlQuery = (params: any) => {
-  const regions = [
-    "zips",
-    "county",
-    "tracts",
-    "cities",
-    "districts",
-    "attendanceel",
-    "attendancemi",
-    "attendancehi",
-    "courts",
-  ];
+const getLocationsSummarySqlQuery = async (params: any) => {
+  const { records } = await db.query(`select jsonb_object_keys(region_ids) as key from ${TABLE_NAME} group by key`)
+
+  const regions = records.map(x => x.key.split('_')[0])
+
   const locationsQuery = regions
     .reduce((query: Array<string>, region) => {
       if (params.hasOwnProperty(region)) {
@@ -185,7 +149,7 @@ const getLocationsSummarySqlQuery = (params: any) => {
  */
 const getLocations = async (params: any) => {
   const { format, ...restParams } = params;
-  const sqlQuery = getLocationsSummarySqlQuery(restParams);
+  const sqlQuery = await getLocationsSummarySqlQuery(restParams);
   const result = await query(sqlQuery, restParams);
   const rows = result.map(
     ({ date, filings, median_filed_amount, total_filed_amount }: any) => ({
@@ -206,8 +170,7 @@ const getLocations = async (params: any) => {
  * Returns an SQL query for the given params
  */
 const getFilingsSqlQuery = (params: EvictionQueryParams) => {
-  const { region: regionParam, location } = params;
-  const region = REGION_MAP[regionParam] || regionParam;
+  const { region, location } = params;
 
   let sqlQuery = region
     ? `
@@ -256,7 +219,7 @@ const getFilings = async (params: EvictionQueryParams) => {
       total_filed_amount,
       ...rest
     }: any) => ({
-      id: rest[(REGION_MAP[region] || "county") + "_id"],
+      id: rest[(region || "county") + "_id"],
       date: date,
       ef: filings,
       mfa: median_filed_amount && Number(median_filed_amount),
