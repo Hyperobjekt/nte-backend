@@ -144,17 +144,17 @@ export class EvictionsStack extends Stack {
       cluster.grantDataApiAccess(loaderFn);
 
       // output API endpoint URL for this environment
-      new CfnOutput(this, `${stage}ApiUrl`, {
+      new CfnOutput(this, `${id}-${stage}ApiUrl`, {
         value: api.url ?? "Something went wrong with the deploy",
-        description: `${stage} URL of the API Gateway`,
-        exportName: `${stage}ApiUrl`,
+        description: `${id}-${stage} URL of the API Gateway`,
+        exportName: `${id}-${stage}ApiUrl`,
       });
 
       // output data bucket name for this environment
-      new CfnOutput(this, `${stage}DataBucket`, {
+      new CfnOutput(this, `${id}-${stage}DataBucket`, {
         value: bucket.bucketName,
-        description: `source file store for ${stage} environment`,
-        exportName: `${stage}DataBucket`,
+        description: `source file store for ${id}-${stage} environment`,
+        exportName: `${id}-${stage}DataBucket`,
       });
     };
 

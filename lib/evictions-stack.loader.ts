@@ -1,6 +1,6 @@
 const AWS = require("aws-sdk");
 const parse = require("csv-parse/lib/sync");
-const { mapValues } = require("lodash")
+const { mapValues } = require("lodash");
 
 const RDS = new AWS.RDSDataService();
 const s3 = new AWS.S3();
@@ -30,7 +30,7 @@ const baseParams = {
   secretArn: DBSecretsStoreArn,
   resourceArn: DBAuroraClusterArn,
   database: DatabaseName,
-}
+};
 
 async function createTables() {
   console.log("create temporary table", evictionTableSQL);
@@ -111,7 +111,9 @@ const loadData = async (bucket: string, filename: string): Promise<any> => {
         amount: amount ? Number(amount) : "null",
         lon: lon ? Number(lon) : "null",
         lat: lat ? Number(lat) : "null",
-        region_ids: `'${JSON.stringify(mapValues(region_ids, stripNonNumeric))}'`,
+        region_ids: `'${JSON.stringify(
+          mapValues(region_ids, stripNonNumeric)
+        )}'`,
       });
       ids[record.case_number] = true;
     }
@@ -127,12 +129,12 @@ const loadData = async (bucket: string, filename: string): Promise<any> => {
 const insertData = async (data: object[]) => {
   if (!data || data.length === 0) throw new Error("Unable to load data");
   let count = 0;
-  // load data 100 entries at a time
+  // load data 50 entries at a time
   while (data.length > 0 && errors.length === 0) {
-    await insertBatch(data.splice(0, 100));
+    await insertBatch(data.splice(0, 50));
     count++;
     if (count % 50 === 0) {
-      console.log("...", count * 100, "rows inserted");
+      console.log("...", count * 50, "rows inserted");
       // console.log("next row: ", data[0])
     }
   }
@@ -172,7 +174,11 @@ exports.handler = async (event: any) => {
     await s3.deleteObject({ Bucket: bucket, Key: file }).promise();
     console.log("removed source file: %s", `${bucket}/${file}`);
     if (errors.length > 0) {
-      throw new Error(`unable to load data due to ${errors.length} errors: ${errors.map(JSON.stringify)}`);
+      throw new Error(
+        `unable to load data due to ${errors.length} errors: ${errors.map(
+          JSON.stringify
+        )}`
+      );
     }
     await promoteTmpTable();
     console.log("promoted temporary table to active table");
